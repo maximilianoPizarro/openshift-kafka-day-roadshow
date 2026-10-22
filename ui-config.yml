@@ -1,0 +1,30 @@
+---
+type: showroom
+
+default_width: 30
+persist_url_state: true
+
+view_switcher:
+  enabled: true
+  default_mode: split
+
+antora:
+  name: kafka-day-roadshow
+  version: main
+
+tabs:
+  - name: OCP Console
+    url: 'https://console-openshift-console.${DOMAIN}'
+
+  - name: Terminal
+    path: /wetty
+    port: 443
+
+  - name: Kafka Console
+    url: 'https://kafka-console-kafka-cdc.${DOMAIN}'
+
+  - name: Mailpit
+    url: 'https://mailpit-kafka-cdc.${DOMAIN}'
+
+  - name: Grafana
+    url: 'https://kafka-grafana-route-kafka-cdc.${DOMAIN}'

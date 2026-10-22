@@ -1,14 +1,36 @@
+---
 site:
   title: OpenShift Kafka Day Roadshow
+  url: https://github.com/maximilianoPizarro/wshop-kafka-debezium
   start_page: kafka-day-roadshow::index.adoc
+
 content:
   sources:
     - url: .
       start_path: content
-      branches: HEAD
+
 ui:
   bundle:
-    url: https://gitlab.com/antora/antora-ui-default/-/jobs/artifacts/HEAD/raw/build/ui-bundle.zip?job=bundle-stable
+    url: https://github.com/dialvare/rhdp_showroom_theme/releases/download/v2.0.4-ops/ui-bundle.zip
     snapshot: true
+  supplemental_files:
+    - path: ./content/supplemental-ui
+    - path: ./content/lib
+    - path: .nojekyll
+    - path: ui.yml
+      contents: "static_files: [ .nojekyll ]"
+
+runtime:
+  cache_dir: ./.cache/antora
+
+antora:
+  extensions:
+    - require: ./content/lib/dev-mode.js
+      enabled: false
+
 output:
   dir: ./www
+
+asciidoc:
+  attributes:
+    toclevels: 2

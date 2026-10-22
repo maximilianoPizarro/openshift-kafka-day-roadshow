@@ -1,14 +1,3 @@
-apiVersion: console.streamshub.github.com/v1alpha1
-kind: Console
-metadata:
-  name: kafka-console
-  namespace: kafka-cdc
-  annotations:
-    argocd.argoproj.io/sync-wave: "4"
-    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
-spec:
-  hostname: kafka-console-kafka-cdc.{{ .Values.clusterDomain }}
-  kafkaClusters:
-    - name: cdc-cluster
-      namespace: kafka-cdc
-      listener: plain
+{{/* Kafka Streams Console is deployed via the amq-streams-console operator.
+     The Console CR will be created manually after all operators are ready.
+     This template only creates the Route for the console UI. */}}
