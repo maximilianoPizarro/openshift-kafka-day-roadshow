@@ -134,16 +134,16 @@ You should see all the messages you produced.
 
 The Kafka Bridge exposes a REST API for producing and consuming messages via HTTP:
 
-[source,bash,role="execute"]
+[source,bash,role="execute",subs="+attributes"]
 ----
-curl -s {bridge_url}/topics | python3 -m json.tool
+curl -sk {bridge_url}/topics | python3 -m json.tool
 ----
 
 Produce a message via REST:
 
-[source,bash,role="execute"]
+[source,bash,role="execute",subs="+attributes"]
 ----
-curl -X POST {bridge_url}/topics/test-workshop \
+curl -sk -X POST {bridge_url}/topics/test-workshop \
   -H "Content-Type: application/vnd.kafka.json.v2+json" \
   -d '{"records": [{"value": {"message": "Hello from REST API!", "user": "user1"}}]}'
 ----
