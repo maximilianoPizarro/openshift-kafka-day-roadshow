@@ -34,6 +34,29 @@ Watch the simulator in action:
 oc logs -f deployment/cdc-data-simulator -n kafka-cdc
 ----
 
+.Expected simulator Deployment (offline reference)
+[source,yaml]
+----
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cdc-data-simulator
+  namespace: kafka-cdc
+spec:
+  replicas: 1
+  template:
+    spec:
+      containers:
+        - name: simulator
+          env:
+            - name: PGHOST
+              value: cdc-postgresql
+            - name: PGDATABASE
+              value: cdcdb
+            - name: INTERVAL_SECONDS
+              value: "60"
+----
+
 You should see entries like:
 
 [source,text]

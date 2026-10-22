@@ -104,6 +104,24 @@ The workshop deploys PodMonitors to scrape Kafka metrics:
 oc get podmonitor -n kafka-cdc
 ----
 
+.Expected PodMonitor (offline reference)
+[source,yaml]
+----
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: kafka-brokers
+  namespace: kafka-cdc
+spec:
+  selector:
+    matchLabels:
+      strimzi.io/kind: Kafka
+      strimzi.io/cluster: cdc-cluster
+  podMetricsEndpoints:
+    - port: tcp-prometheus
+      interval: 30s
+----
+
 These automatically configure Prometheus to scrape:
 
 * Kafka brokers (JMX metrics via Prometheus exporter)

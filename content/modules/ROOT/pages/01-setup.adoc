@@ -53,6 +53,32 @@ You should see pods running for:
 * `mailpit` -- Email inbox viewer
 * `kafka-console` -- Kafka Streams Console UI
 
+.Expected Kafka cluster (offline reference)
+[source,yaml]
+----
+apiVersion: kafka.strimzi.io/v1beta2
+kind: Kafka
+metadata:
+  name: cdc-cluster
+  namespace: kafka-cdc
+  annotations:
+    strimzi.io/node-pools: enabled
+    strimzi.io/kraft: enabled
+spec:
+  kafka:
+    listeners:
+      - name: plain
+        port: 9092
+        type: internal
+        tls: false
+      - name: tls
+        port: 9093
+        type: internal
+        tls: true
+        authentication:
+          type: scram-sha-512
+----
+
 == Step 4: Access the Key UIs
 
 Use the workshop tabs or open these URLs:

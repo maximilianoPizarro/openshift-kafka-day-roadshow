@@ -9,13 +9,30 @@ view_switcher:
   default_mode: split
 
 antora:
+  dir: kafka-day-roadshow
+  name: main
   modules:
-    - name: kafka-day-roadshow
-      version: main
+    - name: index
+      label: Welcome
+    - name: 01-setup
+      label: Lab Setup & Overview
+    - name: 02-kafka-fundamentals
+      label: Kafka Fundamentals
+    - name: 03-event-producer
+      label: Event Producer
+    - name: 04-event-consumer
+      label: Event Consumer
+    - name: 05-debezium-cdc
+      label: Debezium CDC
+    - name: 06-monitoring
+      label: Monitoring
+    - name: 07-summary
+      label: Wrap-up
 
 tabs:
   - name: OCP Console
     url: 'https://console-openshift-console.${DOMAIN}'
+    external: true
 
   - name: Terminal
     path: /terminal

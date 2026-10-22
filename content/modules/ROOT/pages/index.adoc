@@ -27,7 +27,9 @@ Welcome to the **OpenShift Kafka Day Roadshow** -- a hands-on workshop covering 
 
 == Architecture
 
-The workshop deploys the following components on your OpenShift cluster:
+The workshop deploys the following CDC pipeline on your OpenShift cluster:
+
+image::cdc-architecture.jpg[OpenShift Kafka Day Roadshow CDC Pipeline,width=100%]
 
 [cols="1,2"]
 |===

@@ -22,6 +22,30 @@ oc get kafka -n kafka-cdc
 oc get kafkanodepool -n kafka-cdc
 ----
 
+.Expected KafkaNodePool (offline reference)
+[source,yaml]
+----
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaNodePool
+metadata:
+  name: broker
+  namespace: kafka-cdc
+  labels:
+    strimzi.io/cluster: cdc-cluster
+spec:
+  replicas: 3
+  roles:
+    - controller
+    - broker
+  storage:
+    type: jbod
+    volumes:
+      - id: 0
+        kraftMetadata: shared
+        type: persistent-claim
+        size: 10Gi
+----
+
 === Explore Topics
 
 List all Kafka topics:
@@ -36,6 +60,21 @@ You should see these CDC topics:
 * `cdc.public.customers` -- Customer table changes
 * `cdc.public.orders` -- Order table changes
 * `dlq.cdc-errors` -- Dead letter queue for failed events
+
+.Expected topic (offline reference)
+[source,yaml]
+----
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: cdc.public.orders
+  namespace: kafka-cdc
+  labels:
+    strimzi.io/cluster: cdc-cluster
+spec:
+  partitions: 3
+  replicas: 3
+----
 
 == Kafka Streams Console
 

@@ -36,6 +36,32 @@ debezium-postgresql-source    cdc-connect   io.debezium.connector.postgresql.Pos
 mailpit-http-sink             cdc-connect   io.aiven.kafka.connect.http.HttpSinkConnector            1           True
 ----
 
+.Expected Debezium connector (offline reference)
+[source,yaml]
+----
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: debezium-postgresql-source
+  namespace: kafka-cdc
+  labels:
+    strimzi.io/cluster: cdc-connect
+spec:
+  class: io.debezium.connector.postgresql.PostgresConnector
+  tasksMax: 1
+  config:
+    database.hostname: cdc-postgresql
+    database.port: "5432"
+    database.user: cdcuser
+    database.dbname: cdcdb
+    topic.prefix: cdc
+    plugin.name: pgoutput
+    publication.name: cdc_publication
+    publication.autocreate.mode: disabled
+    slot.name: debezium_cdc
+    table.include.list: "public.customers,public.orders"
+----
+
 === Connector Configuration Deep Dive
 
 [source,bash,role="execute"]

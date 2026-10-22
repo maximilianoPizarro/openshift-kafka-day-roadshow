@@ -16,6 +16,8 @@ spec:
     security:
       admin_user: admin
       admin_password: admin
+      allow_embedding: "true"
+
   route:
     spec:
       tls:

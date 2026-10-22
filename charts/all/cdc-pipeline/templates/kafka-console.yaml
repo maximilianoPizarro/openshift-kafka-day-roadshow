@@ -1,3 +1,21 @@
-{{/* Kafka Streams Console is deployed via the amq-streams-console operator.
-     The Console CR will be created manually after all operators are ready.
-     This template only creates the Route for the console UI. */}}
+{{- $domain := .Values.clusterDomain | default "apps.cluster.example.com" }}
+---
+apiVersion: console.streamshub.github.com/v1alpha1
+kind: Console
+metadata:
+  name: kafka-console
+  namespace: kafka-cdc
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  hostname: kafka-console-kafka-cdc.{{ $domain }}
+  kafkaClusters:
+    - name: cdc-cluster
+      namespace: kafka-cdc
+      listener: plain
+  kafkaConnectClusters:
+    - name: cdc-connect
+      url: http://cdc-connect-connect-api.kafka-cdc.svc:8083
+      kafkaClusters:
+        - kafka-cdc/cdc-cluster

@@ -28,6 +28,24 @@ View the connector configuration:
 oc get kafkaconnector mailpit-http-sink -n kafka-cdc -o yaml
 ----
 
+.Expected HTTP Sink connector (offline reference)
+[source,yaml]
+----
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: mailpit-http-sink
+  namespace: kafka-cdc
+  labels:
+    strimzi.io/cluster: cdc-connect
+spec:
+  class: io.aiven.kafka.connect.http.HttpSinkConnector
+  tasksMax: 1
+  config:
+    topics: "cdc.public.customers,cdc.public.orders"
+    http.url: "http://cdc-email-transformer.kafka-cdc.svc:8080"
+----
+
 === View the Email Transformer
 
 The transformer converts CDC events into formatted HTML emails:
