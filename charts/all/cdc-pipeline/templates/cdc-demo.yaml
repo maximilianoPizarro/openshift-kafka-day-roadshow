@@ -1,0 +1,598 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cdc-postgresql-secret
+  namespace: kafka-cdc
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+stringData:
+  POSTGRESQL_DATABASE: {{ .Values.postgresql.database }}
+  POSTGRESQL_USER: {{ .Values.postgresql.username }}
+  POSTGRESQL_PASSWORD: {{ .Values.postgresql.password }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cdc-postgresql-init
+  namespace: kafka-cdc
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+data:
+  init.sql: |
+    ALTER SYSTEM SET wal_level = 'logical';
+    ALTER SYSTEM SET max_replication_slots = 4;
+    ALTER SYSTEM SET max_wal_senders = 4;
+    ALTER ROLE {{ .Values.postgresql.username }} WITH REPLICATION;
+
+    CREATE TABLE IF NOT EXISTS customers (
+      id SERIAL PRIMARY KEY,
+      first_name VARCHAR(100) NOT NULL,
+      last_name  VARCHAR(100) NOT NULL,
+      email      VARCHAR(255) UNIQUE NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS orders (
+      id          SERIAL PRIMARY KEY,
+      customer_id INTEGER REFERENCES customers(id),
+      product     VARCHAR(255) NOT NULL,
+      amount      DECIMAL(10,2) NOT NULL,
+      status      VARCHAR(50) DEFAULT 'pending',
+      created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    INSERT INTO customers (first_name, last_name, email) VALUES
+      ('Ana',    'Garcia',    'ana.garcia@neuralbank.io'),
+      ('Carlos', 'Lopez',     'carlos.lopez@neuralbank.io'),
+      ('Maria',  'Rodriguez', 'maria.rodriguez@neuralbank.io'),
+      ('Pedro',  'Martinez',  'pedro.martinez@neuralbank.io'),
+      ('Laura',  'Fernandez', 'laura.fernandez@neuralbank.io')
+    ON CONFLICT (email) DO NOTHING;
+
+    INSERT INTO orders (customer_id, product, amount, status) VALUES
+      (1, 'Personal Loan', 15000.00, 'approved'),
+      (2, 'Credit Card',    5000.00, 'pending'),
+      (3, 'Mortgage',     250000.00, 'reviewing'),
+      (4, 'Auto Loan',     35000.00, 'approved'),
+      (5, 'Business Line',100000.00, 'pending');
+
+    GRANT SELECT ON ALL TABLES IN SCHEMA public TO {{ .Values.postgresql.username }};
+    CREATE PUBLICATION cdc_publication FOR TABLE customers, orders;
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cdc-postgresql-cfg
+  namespace: kafka-cdc
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+data:
+  custom.conf: |
+    wal_level = logical
+    max_replication_slots = 4
+    max_wal_senders = 4
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cdc-postgresql-data
+  namespace: kafka-cdc
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cdc-postgresql
+  namespace: kafka-cdc
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+  labels:
+    app: cdc-postgresql
+    app.kubernetes.io/part-of: cdc-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cdc-postgresql
+  template:
+    metadata:
+      labels:
+        app: cdc-postgresql
+    spec:
+      containers:
+        - name: postgresql
+          image: registry.redhat.io/rhel9/postgresql-16:latest
+          ports:
+            - containerPort: 5432
+              protocol: TCP
+          envFrom:
+            - secretRef:
+                name: cdc-postgresql-secret
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/pgsql/data
+            - name: init-scripts
+              mountPath: /opt/app-root/src/postgresql-init/init.sql
+              subPath: init.sql
+            - name: pg-cfg
+              mountPath: /opt/app-root/src/postgresql-cfg
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - pg_isready -U $POSTGRESQL_USER -d $POSTGRESQL_DATABASE
+            initialDelaySeconds: 10
+            periodSeconds: 10
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: cdc-postgresql-data
+        - name: init-scripts
+          configMap:
+            name: cdc-postgresql-init
+        - name: pg-cfg
+          configMap:
+            name: cdc-postgresql-cfg
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cdc-postgresql
+  namespace: kafka-cdc
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+  labels:
+    app: cdc-postgresql
+spec:
+  ports:
+    - port: 5432
+      targetPort: 5432
+      protocol: TCP
+  selector:
+    app: cdc-postgresql
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnect
+metadata:
+  name: cdc-connect
+  namespace: kafka-cdc
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+    strimzi.io/use-connector-resources: "true"
+spec:
+  version: "4.2.0"
+  replicas: 2
+  bootstrapServers: cdc-cluster-kafka-bootstrap:9093
+  authentication:
+    type: scram-sha-512
+    username: cdc-user
+    passwordSecret:
+      secretName: cdc-user
+      password: password
+  tls:
+    trustedCertificates:
+      - secretName: cdc-cluster-cluster-ca-cert
+        certificate: ca.crt
+  groupId: cdc-connect-cluster
+  configStorageTopic: cdc-connect-configs
+  offsetStorageTopic: cdc-connect-offsets
+  statusStorageTopic: cdc-connect-status
+  config:
+    offset.storage.replication.factor: 3
+    config.storage.replication.factor: 3
+    status.storage.replication.factor: 3
+    key.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    key.converter.schemas.enable: true
+    value.converter.schemas.enable: true
+  build:
+    output:
+      type: docker
+      image: image-registry.openshift-image-registry.svc:5000/kafka-cdc/cdc-connect:latest
+    plugins:
+      - name: debezium-postgresql
+        artifacts:
+          - type: zip
+            url: https://repo1.maven.org/maven2/io/debezium/debezium-connector-postgres/3.0.2.Final/debezium-connector-postgres-3.0.2.Final-plugin.zip
+      - name: http-sink
+        artifacts:
+          - type: zip
+            url: https://github.com/Aiven-Open/http-connector-for-apache-kafka/releases/download/v0.9.0/http-connector-for-apache-kafka-0.9.0.zip
+  metricsConfig:
+    type: jmxPrometheusExporter
+    valueFrom:
+      configMapKeyRef:
+        name: connect-metrics-config
+        key: connect-metrics-config.yml
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: connect-metrics-config
+  namespace: kafka-cdc
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+data:
+  connect-metrics-config.yml: |
+    lowercaseOutputName: true
+    lowercaseOutputLabelNames: true
+    rules:
+    - pattern: kafka.connect<type=connect-worker-metrics, connector=(.+)><>([a-z-]+)
+      name: kafka_connect_worker_$2
+      type: GAUGE
+      labels:
+        connector: "$1"
+    - pattern: kafka.connect<type=connector-metrics, client-id=(.+)><>([a-z-]+)
+      name: kafka_connect_connector_$2
+      type: GAUGE
+      labels:
+        client_id: "$1"
+    - pattern: kafka.connect<type=connector-task-metrics, connector=(.+), task=(.+)><>([a-z-]+)
+      name: kafka_connect_task_$3
+      type: GAUGE
+      labels:
+        connector: "$1"
+        task: "$2"
+    - pattern: debezium.([^.]+)<type=connector-metrics, context=([^,]+), server=([^>]+)><>([A-Za-z]+)
+      name: debezium_$1_$4
+      type: GAUGE
+      labels:
+        context: "$2"
+        server: "$3"
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: debezium-postgresql-source
+  namespace: kafka-cdc
+  labels:
+    strimzi.io/cluster: cdc-connect
+  annotations:
+    argocd.argoproj.io/sync-wave: "6"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  class: io.debezium.connector.postgresql.PostgresConnector
+  tasksMax: 1
+  config:
+    database.hostname: cdc-postgresql
+    database.port: "5432"
+    database.user: {{ .Values.postgresql.username }}
+    database.password: {{ .Values.postgresql.password }}
+    database.dbname: {{ .Values.postgresql.database }}
+    topic.prefix: cdc
+    schema.include.list: public
+    table.include.list: "public.customers,public.orders"
+    plugin.name: pgoutput
+    publication.name: cdc_publication
+    publication.autocreate.mode: disabled
+    slot.name: debezium_cdc
+    decimal.handling.mode: string
+    tombstones.on.delete: false
+    snapshot.mode: initial
+    errors.tolerance: all
+    errors.deadletterqueue.topic.name: dlq.cdc-errors
+    errors.deadletterqueue.topic.replication.factor: 3
+    errors.deadletterqueue.context.headers.enable: true
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cdc-email-transformer
+  namespace: kafka-cdc
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
+data:
+  server.py: |
+    from http.server import HTTPServer, BaseHTTPRequestHandler
+    import json, urllib.request, os
+
+    MAILPIT = os.environ.get("MAILPIT_URL", "http://mailpit.kafka-cdc.svc:8025/api/v1/send")
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self):
+            body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
+            try:
+                event = json.loads(body)
+                if "payload" in event:
+                    event = event["payload"]
+                after = event.get("after") or event
+                op = event.get("op", "u")
+                source = event.get("source", {})
+                table = source.get("table", "unknown")
+                ops = {"c": "Created", "u": "Updated", "d": "Deleted", "r": "Snapshot"}
+                action = ops.get(op, op)
+                name = f"{after.get('first_name', '')} {after.get('last_name', '')}".strip() or str(after.get("id", ""))
+                rows = "".join(f"<tr><td><b>{k}</b></td><td>{v}</td></tr>" for k, v in after.items())
+                mail = {
+                    "From": {"Email": "cdc-pipeline@workshop.io", "Name": "CDC Pipeline"},
+                    "To": [{"Email": "admin@workshop.io", "Name": "Workshop Admin"}],
+                    "Subject": f"CDC {action} - {table}: {name}",
+                    "HTML": f"<h2>CDC Event - Record {action}</h2><p>Table: <b>{table}</b> | Operation: <b>{action}</b></p><table border='1'>{rows}</table><hr><small>CDC Pipeline - Debezium + AMQ Streams</small>"
+                }
+                req = urllib.request.Request(MAILPIT, json.dumps(mail).encode(), {"Content-Type": "application/json"})
+                with urllib.request.urlopen(req, timeout=5) as resp:
+                    self.send_response(resp.status)
+                    self.end_headers()
+                    self.wfile.write(resp.read())
+            except Exception as e:
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(json.dumps({"status": "skipped", "reason": str(e)}).encode())
+        def log_message(self, fmt, *args): pass
+
+    HTTPServer(("", 8080), Handler).serve_forever()
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cdc-email-transformer
+  namespace: kafka-cdc
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
+  labels:
+    app: cdc-email-transformer
+    app.kubernetes.io/part-of: cdc-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cdc-email-transformer
+  template:
+    metadata:
+      labels:
+        app: cdc-email-transformer
+    spec:
+      containers:
+        - name: transformer
+          image: registry.access.redhat.com/ubi9/python-311:latest
+          command: ["python3", "/app/server.py"]
+          ports:
+            - containerPort: 8080
+          env:
+            - name: MAILPIT_URL
+              value: "http://mailpit.kafka-cdc.svc:8025/api/v1/send"
+          volumeMounts:
+            - name: script
+              mountPath: /app
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          livenessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 5
+          readinessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 3
+      volumes:
+        - name: script
+          configMap:
+            name: cdc-email-transformer
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cdc-email-transformer
+  namespace: kafka-cdc
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
+spec:
+  selector:
+    app: cdc-email-transformer
+  ports:
+    - port: 8080
+      targetPort: 8080
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: mailpit-http-sink
+  namespace: kafka-cdc
+  labels:
+    strimzi.io/cluster: cdc-connect
+  annotations:
+    argocd.argoproj.io/sync-wave: "6"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  class: io.aiven.kafka.connect.http.HttpSinkConnector
+  tasksMax: 1
+  config:
+    topics: "cdc.public.customers,cdc.public.orders"
+    http.url: "http://cdc-email-transformer.kafka-cdc.svc:8080"
+    http.authorization.type: none
+    http.headers.content.type: "application/json"
+    batching.enabled: "false"
+    key.converter: org.apache.kafka.connect.storage.StringConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter.schemas.enable: "false"
+    errors.tolerance: all
+    errors.deadletterqueue.topic.name: dlq.cdc-errors
+    errors.deadletterqueue.topic.replication.factor: 3
+    errors.deadletterqueue.context.headers.enable: true
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cdc-data-simulator-script
+  namespace: kafka-cdc
+  annotations:
+    argocd.argoproj.io/sync-wave: "6"
+data:
+  simulator.py: |
+    import os, time, random, string, logging
+    import psycopg2
+
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    log = logging.getLogger("cdc-simulator")
+
+    DB_HOST = os.getenv("PGHOST", "cdc-postgresql")
+    DB_NAME = os.getenv("PGDATABASE", "cdcdb")
+    DB_USER = os.getenv("PGUSER", "cdcuser")
+    DB_PASS = os.getenv("PGPASSWORD", "")
+    INTERVAL = int(os.getenv("INTERVAL_SECONDS", "60"))
+
+    PRODUCTS = [
+        ("Personal Loan", 5000, 50000),
+        ("Credit Card", 1000, 25000),
+        ("Mortgage", 100000, 500000),
+        ("Auto Loan", 10000, 80000),
+        ("Business Line", 20000, 200000),
+        ("Savings Account", 500, 10000),
+        ("Investment Fund", 5000, 100000),
+    ]
+    STATUSES = ["pending", "approved", "reviewing", "rejected"]
+    FIRST_NAMES = ["Ana", "Carlos", "Maria", "Pedro", "Laura", "Diego", "Sofia",
+                   "Miguel", "Valentina", "Andres", "Camila", "Javier", "Isabella",
+                   "Lucas", "Emma", "Mateo", "Lucia", "Daniel", "Paula", "Nicolas"]
+    LAST_NAMES = ["Garcia", "Lopez", "Rodriguez", "Martinez", "Fernandez", "Gonzalez",
+                  "Perez", "Sanchez", "Ramirez", "Torres", "Diaz", "Moreno", "Alvarez"]
+
+    def rand_str(n=6):
+        return "".join(random.choices(string.ascii_lowercase + string.digits, k=n))
+
+    def connect():
+        for attempt in range(30):
+            try:
+                conn = psycopg2.connect(host=DB_HOST, dbname=DB_NAME, user=DB_USER, password=DB_PASS)
+                conn.autocommit = True
+                return conn
+            except psycopg2.OperationalError as e:
+                log.warning("DB not ready (attempt %d/30): %s", attempt + 1, e)
+                time.sleep(10)
+        raise RuntimeError("Cannot connect to PostgreSQL after 30 attempts")
+
+    def insert_customer(cur):
+        fn = random.choice(FIRST_NAMES)
+        ln = random.choice(LAST_NAMES)
+        email = f"{fn.lower()}.{ln.lower()}.{rand_str()}@neuralbank.io"
+        cur.execute(
+            "INSERT INTO customers (first_name, last_name, email) VALUES (%s, %s, %s) RETURNING id",
+            (fn, ln, email),
+        )
+        cid = cur.fetchone()[0]
+        log.info("Inserted customer id=%d: %s %s <%s>", cid, fn, ln, email)
+        return cid
+
+    def insert_order(cur, customer_id):
+        product, lo, hi = random.choice(PRODUCTS)
+        amount = round(random.uniform(lo, hi), 2)
+        status = random.choice(STATUSES)
+        cur.execute(
+            "INSERT INTO orders (customer_id, product, amount, status) VALUES (%s, %s, %s, %s) RETURNING id",
+            (customer_id, product, amount, status),
+        )
+        oid = cur.fetchone()[0]
+        log.info("Inserted order id=%d: %s $%.2f [%s] for customer %d", oid, product, amount, status, customer_id)
+
+    def update_random_order(cur):
+        cur.execute("SELECT id FROM orders ORDER BY random() LIMIT 1")
+        row = cur.fetchone()
+        if row:
+            new_status = random.choice(STATUSES)
+            cur.execute("UPDATE orders SET status = %s WHERE id = %s", (new_status, row[0]))
+            log.info("Updated order id=%d status -> %s", row[0], new_status)
+
+    def main():
+        log.info("CDC Data Simulator starting (interval=%ds)", INTERVAL)
+        conn = connect()
+        cur = conn.cursor()
+        log.info("Connected. Starting simulation loop")
+
+        while True:
+            try:
+                action = random.choices(["customer", "order", "update"], weights=[40, 40, 20])[0]
+                if action == "customer":
+                    insert_customer(cur)
+                elif action == "order":
+                    cur.execute("SELECT id FROM customers ORDER BY random() LIMIT 1")
+                    row = cur.fetchone()
+                    if row:
+                        insert_order(cur, row[0])
+                    else:
+                        cid = insert_customer(cur)
+                        insert_order(cur, cid)
+                else:
+                    update_random_order(cur)
+            except psycopg2.Error as e:
+                log.error("DB error: %s", e)
+                try:
+                    conn = connect()
+                    cur = conn.cursor()
+                except Exception:
+                    pass
+            time.sleep(INTERVAL)
+
+    if __name__ == "__main__":
+        main()
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cdc-data-simulator
+  namespace: kafka-cdc
+  annotations:
+    argocd.argoproj.io/sync-wave: "6"
+  labels:
+    app: cdc-data-simulator
+    app.kubernetes.io/part-of: cdc-demo
+    app.openshift.io/runtime: python
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cdc-data-simulator
+  template:
+    metadata:
+      labels:
+        app: cdc-data-simulator
+    spec:
+      containers:
+        - name: simulator
+          image: registry.access.redhat.com/ubi9/python-312:latest
+          command: ["bash", "-c", "pip install --quiet psycopg2-binary && python3 /scripts/simulator.py"]
+          env:
+            - name: PGHOST
+              value: cdc-postgresql
+            - name: PGDATABASE
+              value: {{ .Values.postgresql.database }}
+            - name: PGUSER
+              value: {{ .Values.postgresql.username }}
+            - name: PGPASSWORD
+              value: {{ .Values.postgresql.password }}
+            - name: INTERVAL_SECONDS
+              value: "60"
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+          volumeMounts:
+            - name: script
+              mountPath: /scripts
+      volumes:
+        - name: script
+          configMap:
+            name: cdc-data-simulator-script

@@ -1,0 +1,14 @@
+site:
+  title: OpenShift Kafka Day Roadshow
+  start_page: kafka-day-roadshow::index.adoc
+content:
+  sources:
+    - url: .
+      start_path: content
+      branches: HEAD
+ui:
+  bundle:
+    url: https://gitlab.com/antora/antora-ui-default/-/jobs/artifacts/HEAD/raw/build/ui-bundle.zip?job=bundle-stable
+    snapshot: true
+output:
+  dir: ./www

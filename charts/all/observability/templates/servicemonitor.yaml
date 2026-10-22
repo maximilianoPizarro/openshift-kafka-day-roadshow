@@ -1,0 +1,53 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: kafka-brokers
+  namespace: kafka-cdc
+  labels:
+    strimzi.io/cluster: cdc-cluster
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
+spec:
+  selector:
+    matchLabels:
+      strimzi.io/cluster: cdc-cluster
+      strimzi.io/kind: Kafka
+  podMetricsEndpoints:
+    - port: tcp-prometheus
+      path: /metrics
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: kafka-connect
+  namespace: kafka-cdc
+  labels:
+    strimzi.io/cluster: cdc-connect
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
+spec:
+  selector:
+    matchLabels:
+      strimzi.io/cluster: cdc-connect
+      strimzi.io/kind: KafkaConnect
+  podMetricsEndpoints:
+    - port: tcp-prometheus
+      path: /metrics
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: kafka-bridge
+  namespace: kafka-cdc
+  labels:
+    strimzi.io/cluster: cdc-cluster
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
+spec:
+  selector:
+    matchLabels:
+      strimzi.io/cluster: cdc-bridge
+      strimzi.io/kind: KafkaBridge
+  podMetricsEndpoints:
+    - port: tcp-prometheus
+      path: /metrics

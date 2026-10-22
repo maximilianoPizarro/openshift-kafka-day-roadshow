@@ -1,0 +1,25 @@
+---
+main:
+  clusterGroupName: hub
+  multiSourceConfig:
+    enabled: true
+    clusterGroupChartVersion: "0.9.*"
+    helmRepoUrl: https://charts.validatedpatterns.io
+
+global:
+  pattern: openshift-kafka-day-roadshow
+  singleArgoCD: true
+  argoNamespace: openshift-gitops
+  options:
+    useCSV: false
+    syncPolicy: Automatic
+    installPlanApproval: Automatic
+  secretLoader:
+    disabled: true
+
+userCount: 30
+
+postgresql:
+  database: cdcdb
+  username: cdcuser
+  password: cdc-demo-2024

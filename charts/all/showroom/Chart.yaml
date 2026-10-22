@@ -1,0 +1,5 @@
+apiVersion: v2
+name: showroom
+description: Showroom lab guide with Antora content and wetty terminal
+version: 0.1.0
+type: application

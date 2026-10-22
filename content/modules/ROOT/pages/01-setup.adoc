@@ -1,0 +1,100 @@
+= Lab Setup & Overview
+
+== Objectives
+
+* Log in to the OpenShift cluster
+* Verify CLI access
+* Explore the OCP Console
+* Understand the lab architecture
+
+== Step 1: Log in to the OpenShift Console
+
+Open the OpenShift Console in your browser:
+
+[source,text]
+----
+https://console-openshift-console.{cluster_domain}
+----
+
+Log in with your assigned credentials:
+
+* **Username:** `userN` (where N is your assigned number)
+* **Password:** `Welcome123!`
+
+== Step 2: CLI Login
+
+Open a terminal and log in using the `oc` CLI:
+
+[source,bash,role="execute"]
+----
+oc login -u user1 -p 'Welcome123!' https://api.{cluster_base}:6443
+----
+
+Verify your identity:
+
+[source,bash,role="execute"]
+----
+oc whoami
+----
+
+== Step 3: Explore the Workshop Namespace
+
+The shared workshop infrastructure lives in the `kafka-cdc` namespace. Verify you can view it:
+
+[source,bash,role="execute"]
+----
+oc get pods -n kafka-cdc
+----
+
+You should see pods running for:
+
+* `cdc-cluster` -- Kafka brokers (3 pods)
+* `cdc-connect` -- Kafka Connect workers (2 pods)
+* `cdc-postgresql` -- PostgreSQL database
+* `cdc-data-simulator` -- Transaction simulator
+* `cdc-email-transformer` -- Event consumer
+* `mailpit` -- Email inbox viewer
+* `kafka-console` -- Kafka Streams Console UI
+
+== Step 4: Access the Key UIs
+
+Open each of these URLs in your browser:
+
+[cols="1,2"]
+|===
+|Tool |URL
+
+|Kafka Streams Console
+|`https://kafka-console-kafka-cdc.{cluster_domain}`
+
+|Mailpit (Email Viewer)
+|`https://mailpit-kafka-cdc.{cluster_domain}`
+
+|Grafana
+|`https://kafka-grafana-route-kafka-cdc.{cluster_domain}`
+
+|Kafka Bridge REST API
+|`https://kafka-bridge-kafka-cdc.{cluster_domain}/topics`
+|===
+
+== Step 5: Verify Your Personal Namespace
+
+You have admin access to your own namespace:
+
+[source,bash,role="execute"]
+----
+oc project user1-workshop
+oc get all
+----
+
+You will use this namespace later to deploy your own consumer applications.
+
+== Summary
+
+You now have:
+
+* [x] CLI access to the cluster
+* [x] Console access
+* [x] View permissions on the `kafka-cdc` namespace
+* [x] Admin access to your personal `userN-workshop` namespace
+* [x] URLs for all the workshop tools

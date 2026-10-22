@@ -1,0 +1,6 @@
+userCount: 30
+clusterDomain: ""
+showroom:
+  image: ghcr.io/rhpds/showroom-deployer:latest
+  contentRepo: https://github.com/maximilianoPizarro/openshift-kafka-day-roadshow.git
+  contentBranch: main

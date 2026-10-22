@@ -1,0 +1,13 @@
+apiVersion: v2
+name: openshift-kafka-day-roadshow
+description: Kafka & Debezium CDC Workshop — Validated Pattern (hub-only, no ACM/Vault)
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+dependencies:
+  - name: clustergroup
+    version: "0.9.*"
+    repository: https://charts.validatedpatterns.io
+maintainers:
+  - name: Maximiliano Pizarro
+    email: mapizarr@redhat.com

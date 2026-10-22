@@ -1,0 +1,5 @@
+apiVersion: v2
+name: platform
+description: Platform users (HTPasswd OAuth) and RBAC for workshop
+version: 0.1.0
+type: application

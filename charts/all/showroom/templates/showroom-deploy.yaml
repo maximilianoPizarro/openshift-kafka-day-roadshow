@@ -1,0 +1,104 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: showroom
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: showroom-user-data
+  namespace: showroom
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+data:
+  user_data.yaml: |
+    lab_name: OpenShift Kafka Day Roadshow
+    user_count: {{ .Values.userCount }}
+    cluster_domain: {{ .Values.clusterDomain }}
+    user_password: "Welcome123!"
+    kafka_bootstrap: "cdc-cluster-kafka-bootstrap.kafka-cdc.svc:9092"
+    kafka_console_url: "https://kafka-console-kafka-cdc.{{ .Values.clusterDomain }}"
+    mailpit_url: "https://mailpit-kafka-cdc.{{ .Values.clusterDomain }}"
+    grafana_url: "https://kafka-grafana-route-kafka-cdc.{{ .Values.clusterDomain }}"
+    bridge_url: "https://kafka-bridge-kafka-cdc.{{ .Values.clusterDomain }}"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: showroom
+  namespace: showroom
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+  labels:
+    app: showroom
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: showroom
+  template:
+    metadata:
+      labels:
+        app: showroom
+    spec:
+      containers:
+        - name: showroom
+          image: {{ .Values.showroom.image }}
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: GIT_REPO_URL
+              value: {{ .Values.showroom.contentRepo }}
+            - name: GIT_REPO_REF
+              value: {{ .Values.showroom.contentBranch }}
+            - name: CONTENT_PATH
+              value: content
+          volumeMounts:
+            - name: user-data
+              mountPath: /user-data
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: user-data
+          configMap:
+            name: showroom-user-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: showroom
+  namespace: showroom
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  selector:
+    app: showroom
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: showroom
+  namespace: showroom
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  to:
+    kind: Service
+    name: showroom
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect

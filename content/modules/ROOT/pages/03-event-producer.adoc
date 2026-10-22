@@ -1,0 +1,97 @@
+= Event Producer: Real Application
+
+== Objectives
+
+* Understand how real applications produce events
+* Explore the CDC Data Simulator
+* See PostgreSQL changes flow into Kafka topics in real time
+
+== The CDC Data Simulator
+
+The workshop includes a **CDC Data Simulator** -- a Python application that continuously generates realistic banking transactions in PostgreSQL.
+
+=== How It Works
+
+[source,text]
+----
+CDC Data Simulator --> PostgreSQL --> Debezium --> Kafka
+     (INSERTs/         (WAL logical     (Connector)   (Topics)
+      UPDATEs)          replication)
+----
+
+The simulator randomly performs:
+
+* **40%** -- Insert a new customer
+* **40%** -- Create a new order for an existing customer
+* **20%** -- Update the status of an existing order
+
+=== View Simulator Logs
+
+Watch the simulator in action:
+
+[source,bash,role="execute"]
+----
+oc logs -f deployment/cdc-data-simulator -n kafka-cdc
+----
+
+You should see entries like:
+
+[source,text]
+----
+2024-01-15 10:30:00 INFO Inserted customer id=42: Sofia Gonzalez <sofia.gonzalez.a3k9f2@neuralbank.io>
+2024-01-15 10:31:00 INFO Inserted order id=38: Mortgage $345,678.90 [pending] for customer 42
+2024-01-15 10:32:00 INFO Updated order id=15 status -> approved
+----
+
+== Explore the PostgreSQL Database
+
+Connect to the database and query the tables:
+
+[source,bash,role="execute"]
+----
+oc exec -it deployment/cdc-postgresql -n kafka-cdc -- \
+  psql -U cdcuser -d cdcdb -c "SELECT count(*) as total_customers FROM customers;"
+----
+
+[source,bash,role="execute"]
+----
+oc exec -it deployment/cdc-postgresql -n kafka-cdc -- \
+  psql -U cdcuser -d cdcdb -c "SELECT * FROM orders ORDER BY id DESC LIMIT 5;"
+----
+
+=== Check WAL Configuration
+
+Verify that PostgreSQL has logical WAL replication enabled (required for Debezium):
+
+[source,bash,role="execute"]
+----
+oc exec -it deployment/cdc-postgresql -n kafka-cdc -- \
+  psql -U cdcuser -d cdcdb -c "SHOW wal_level;"
+----
+
+Expected output: `logical`
+
+[source,bash,role="execute"]
+----
+oc exec -it deployment/cdc-postgresql -n kafka-cdc -- \
+  psql -U cdcuser -d cdcdb -c "SELECT * FROM pg_publication;"
+----
+
+== Generate Your Own Events
+
+Insert a customer manually and watch it appear in Kafka:
+
+[source,bash,role="execute"]
+----
+oc exec -it deployment/cdc-postgresql -n kafka-cdc -- \
+  psql -U cdcuser -d cdcdb -c \
+  "INSERT INTO customers (first_name, last_name, email) VALUES ('Workshop', 'User1', 'workshop.user1@neuralbank.io');"
+----
+
+Now check the Kafka topic in the Streams Console -- you should see a new CDC event with `"op": "c"` (create).
+
+== Summary
+
+* [x] The simulator continuously generates realistic data
+* [x] PostgreSQL WAL captures every change at the database level
+* [x] You can manually INSERT data and see it flow through the pipeline

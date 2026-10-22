@@ -1,0 +1,112 @@
+= Event Consumer: Processing Pipeline
+
+== Objectives
+
+* Understand event consumption patterns
+* Explore the HTTP Sink Connector
+* View CDC notifications in Mailpit
+* Deploy your own consumer
+
+== The Email Notification Pipeline
+
+The workshop demonstrates a complete event consumption pipeline:
+
+[source,text]
+----
+Kafka Topics ──> HTTP Sink Connector ──> Email Transformer ──> Mailpit
+(cdc.public.*)        (Kafka Connect)      (Python HTTP server)   (Email inbox)
+----
+
+=== How the HTTP Sink Works
+
+The `mailpit-http-sink` connector reads from `cdc.public.customers` and `cdc.public.orders` topics. For each message, it sends an HTTP POST to the `cdc-email-transformer` service.
+
+View the connector configuration:
+
+[source,bash,role="execute"]
+----
+oc get kafkaconnector mailpit-http-sink -n kafka-cdc -o yaml
+----
+
+=== View the Email Transformer
+
+The transformer converts CDC events into formatted HTML emails:
+
+[source,bash,role="execute"]
+----
+oc logs -f deployment/cdc-email-transformer -n kafka-cdc
+----
+
+== View CDC Notifications in Mailpit
+
+Open **Mailpit** in your browser:
+
+[source,text]
+----
+https://mailpit-kafka-cdc.{cluster_domain}
+----
+
+You should see email notifications for every CDC event:
+
+* **Subject:** `CDC Created - customers: Ana Garcia`
+* **Body:** An HTML table with all field values from the database row
+
+Each time the simulator inserts or updates a record, a new email appears in Mailpit within seconds.
+
+== Explore Consumer Groups
+
+View the consumer groups for the CDC pipeline:
+
+[source,bash,role="execute"]
+----
+oc run kafka-groups -ti --rm \
+  --image=registry.redhat.io/amq-streams/kafka-38-rhel9:latest \
+  --restart=Never \
+  -n kafka-cdc \
+  -- bin/kafka-consumer-groups.sh \
+    --bootstrap-server cdc-cluster-kafka-bootstrap:9092 \
+    --list
+----
+
+Check lag for the Connect consumer group:
+
+[source,bash,role="execute"]
+----
+oc run kafka-groups -ti --rm \
+  --image=registry.redhat.io/amq-streams/kafka-38-rhel9:latest \
+  --restart=Never \
+  -n kafka-cdc \
+  -- bin/kafka-consumer-groups.sh \
+    --bootstrap-server cdc-cluster-kafka-bootstrap:9092 \
+    --describe --group connect-cdc-connect-cluster
+----
+
+== Deploy Your Own Consumer
+
+Create a simple consumer in your personal namespace:
+
+[source,bash,role="execute"]
+----
+oc project user1-workshop
+----
+
+[source,bash,role="execute"]
+----
+oc run my-consumer -ti --rm \
+  --image=registry.redhat.io/amq-streams/kafka-38-rhel9:latest \
+  --restart=Never \
+  -- bin/kafka-console-consumer.sh \
+    --bootstrap-server cdc-cluster-kafka-bootstrap.kafka-cdc.svc:9092 \
+    --topic cdc.public.orders \
+    --from-beginning \
+    --max-messages 5
+----
+
+This will read the last 5 messages from the orders topic and exit.
+
+== Summary
+
+* [x] HTTP Sink Connector forwards CDC events to external services
+* [x] Email transformer converts raw CDC JSON into human-readable notifications
+* [x] Mailpit provides an inbox to view all notifications
+* [x] Consumer groups track processing progress and lag

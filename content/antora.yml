@@ -1,0 +1,6 @@
+name: kafka-day-roadshow
+title: OpenShift Kafka Day Roadshow
+version: '1.0'
+start_page: ROOT:index.adoc
+nav:
+  - modules/ROOT/nav.adoc

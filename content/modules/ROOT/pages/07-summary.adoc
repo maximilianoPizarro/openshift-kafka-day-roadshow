@@ -1,0 +1,69 @@
+= Wrap-up
+
+== What You Accomplished
+
+Congratulations! In this workshop you explored a complete **Event-Driven Architecture** powered by Apache Kafka and Debezium on Red Hat OpenShift.
+
+=== Key Takeaways
+
+[cols="1,2"]
+|===
+|Topic |What You Learned
+
+|Kafka Fundamentals
+|Brokers, topics, partitions, consumer groups, KRaft mode, CLI tools, REST Bridge
+
+|Event Production
+|CDC Data Simulator generating real banking transactions, PostgreSQL WAL
+
+|Event Consumption
+|HTTP Sink Connector, email transformer pipeline, Mailpit notifications
+
+|Debezium CDC
+|PostgreSQL source connector, event structure (before/after), snapshots, DLQ, schema evolution
+
+|Monitoring
+|Grafana dashboards, Kafka Exporter, PodMonitors, PromQL queries, load simulation
+|===
+
+== Architecture Recap
+
+[source,text]
+----
+┌──────────────────┐     ┌──────────────┐     ┌──────────────┐     ┌─────────────┐
+│  CDC Simulator   │────>│  PostgreSQL  │────>│   Debezium   │────>│    Kafka     │
+│  (Python app)    │     │  (WAL=logical)│     │  (pgoutput)  │     │  (3 brokers) │
+└──────────────────┘     └──────────────┘     └──────────────┘     └──────┬──────┘
+                                                                          │
+                         ┌──────────────┐     ┌──────────────┐            │
+                         │   Mailpit    │<────│   Email      │<───────────┘
+                         │  (inbox UI)  │     │  Transformer │     (HTTP Sink)
+                         └──────────────┘     └──────────────┘
+
+                         ┌──────────────┐     ┌──────────────┐
+                         │   Grafana    │<────│  Prometheus  │  (PodMonitors)
+                         │  (dashboards)│     │  (scraping)  │
+                         └──────────────┘     └──────────────┘
+----
+
+== Production Considerations
+
+When taking this architecture to production, consider:
+
+* **Security** -- Enable TLS and SCRAM-SHA-512 for all Kafka listeners; use OpenShift OAuth for Grafana
+* **Scaling** -- Add Kafka brokers and Connect workers; tune partition count for throughput
+* **Schema Registry** -- Add Apicurio Registry for Avro/Protobuf schema management
+* **Persistence** -- Use larger persistent volumes; configure retention policies
+* **High Availability** -- Set appropriate replication factors; use PodDisruptionBudgets
+* **GitOps** -- Manage everything through the Validated Pattern and ArgoCD
+
+== Next Steps
+
+* Explore the link:https://access.redhat.com/documentation/en-us/red_hat_amq_streams/[AMQ Streams documentation]
+* Learn about link:https://debezium.io/documentation/[Debezium] advanced features
+* Try the link:https://developers.redhat.com/[Red Hat Developer] learning paths
+* Explore the link:https://validatedpatterns.io/[Validated Patterns] framework
+
+== Thank You!
+
+If you have questions, reach out to your instructor or visit the workshop repository.

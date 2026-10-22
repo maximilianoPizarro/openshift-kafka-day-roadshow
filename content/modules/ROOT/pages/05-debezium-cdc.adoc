@@ -1,0 +1,177 @@
+= Debezium CDC
+
+== Objectives
+
+* Understand Change Data Capture (CDC) concepts
+* Explore the Debezium PostgreSQL connector configuration
+* Examine CDC event structure
+* Understand snapshots, WAL offsets, and the Dead Letter Queue
+
+== What is Change Data Capture?
+
+**Change Data Capture (CDC)** is a pattern that identifies and captures changes made to data in a database, then delivers those changes in real time to downstream consumers.
+
+=== Why CDC?
+
+* **No application changes** -- capture events at the database level, not in app code
+* **Complete audit trail** -- every INSERT, UPDATE, DELETE is captured
+* **Low latency** -- events are streamed in near real-time via WAL
+* **Schema evolution** -- Debezium handles schema changes gracefully
+
+== Debezium on Kafka Connect
+
+Debezium runs as a **Kafka Connect source connector**. View the running connectors:
+
+[source,bash,role="execute"]
+----
+oc get kafkaconnector -n kafka-cdc
+----
+
+Expected output:
+
+[source,text]
+----
+NAME                          CLUSTER       CONNECTOR CLASS                                          MAX TASKS   READY
+debezium-postgresql-source    cdc-connect   io.debezium.connector.postgresql.PostgresConnector       1           True
+mailpit-http-sink             cdc-connect   io.aiven.kafka.connect.http.HttpSinkConnector            1           True
+----
+
+=== Connector Configuration Deep Dive
+
+[source,bash,role="execute"]
+----
+oc get kafkaconnector debezium-postgresql-source -n kafka-cdc -o jsonpath='{.spec.config}' | python3 -m json.tool
+----
+
+Key configuration parameters:
+
+[cols="1,2"]
+|===
+|Parameter |Description
+
+|`plugin.name: pgoutput`
+|Uses PostgreSQL's native logical replication protocol
+
+|`topic.prefix: cdc`
+|All topics are prefixed with `cdc` (e.g., `cdc.public.customers`)
+
+|`snapshot.mode: initial`
+|Takes a full snapshot on first start, then switches to streaming
+
+|`publication.name: cdc_publication`
+|Uses a pre-created PostgreSQL publication (not auto-created)
+
+|`errors.tolerance: all`
+|Routes failed records to DLQ instead of stopping the connector
+|===
+
+== CDC Event Structure
+
+Each Debezium event has this structure:
+
+[source,json]
+----
+{
+  "schema": { ... },
+  "payload": {
+    "before": null,
+    "after": {
+      "id": 42,
+      "first_name": "Sofia",
+      "last_name": "Gonzalez",
+      "email": "sofia.gonzalez@neuralbank.io",
+      "created_at": 1705312200000
+    },
+    "source": {
+      "connector": "postgresql",
+      "db": "cdcdb",
+      "schema": "public",
+      "table": "customers",
+      "lsn": 23456789
+    },
+    "op": "c",
+    "ts_ms": 1705312200123
+  }
+}
+----
+
+Operation types:
+
+* `c` -- **Create** (INSERT)
+* `u` -- **Update** (UPDATE) -- includes `before` and `after`
+* `d` -- **Delete** (DELETE) -- includes `before`, `after` is null
+* `r` -- **Read** (Snapshot)
+
+== Check Connector Status
+
+[source,bash,role="execute"]
+----
+oc get kafkaconnector debezium-postgresql-source -n kafka-cdc -o jsonpath='{.status.connectorStatus}' | python3 -m json.tool
+----
+
+== Examine WAL Replication
+
+View the replication slot that Debezium uses:
+
+[source,bash,role="execute"]
+----
+oc exec -it deployment/cdc-postgresql -n kafka-cdc -- \
+  psql -U cdcuser -d cdcdb -c "SELECT slot_name, plugin, slot_type, active FROM pg_replication_slots;"
+----
+
+View the publication:
+
+[source,bash,role="execute"]
+----
+oc exec -it deployment/cdc-postgresql -n kafka-cdc -- \
+  psql -U cdcuser -d cdcdb -c "SELECT * FROM pg_publication_tables;"
+----
+
+== Dead Letter Queue (DLQ)
+
+Failed events are routed to the `dlq.cdc-errors` topic:
+
+[source,bash,role="execute"]
+----
+oc run dlq-check -ti --rm \
+  --image=registry.redhat.io/amq-streams/kafka-38-rhel9:latest \
+  --restart=Never \
+  -n kafka-cdc \
+  -- bin/kafka-console-consumer.sh \
+    --bootstrap-server cdc-cluster-kafka-bootstrap:9092 \
+    --topic dlq.cdc-errors \
+    --from-beginning \
+    --max-messages 1 \
+    --timeout-ms 5000
+----
+
+If the DLQ is empty, that means all CDC events are processing successfully.
+
+== Trigger a Schema Change
+
+Add a new column and observe how Debezium handles it:
+
+[source,bash,role="execute"]
+----
+oc exec -it deployment/cdc-postgresql -n kafka-cdc -- \
+  psql -U cdcuser -d cdcdb -c "ALTER TABLE customers ADD COLUMN phone VARCHAR(20);"
+----
+
+Now insert a record with the new column:
+
+[source,bash,role="execute"]
+----
+oc exec -it deployment/cdc-postgresql -n kafka-cdc -- \
+  psql -U cdcuser -d cdcdb -c \
+  "INSERT INTO customers (first_name, last_name, email, phone) VALUES ('Schema', 'Test', 'schema.test@neuralbank.io', '+54-11-1234-5678');"
+----
+
+Check the `cdc.public.customers` topic in the Streams Console -- the new event will include the `phone` field. Debezium handles schema evolution automatically.
+
+== Summary
+
+* [x] CDC captures database changes via PostgreSQL WAL
+* [x] Debezium runs as a Kafka Connect source connector
+* [x] Events include full `before`/`after` state with operation type
+* [x] Dead Letter Queue handles processing failures
+* [x] Schema changes are handled automatically

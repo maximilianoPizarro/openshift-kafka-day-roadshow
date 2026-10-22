@@ -1,0 +1,61 @@
+= OpenShift Kafka Day Roadshow
+:page-layout: home
+
+== Workshop Overview
+
+Welcome to the **OpenShift Kafka Day Roadshow** -- a hands-on workshop covering Event-Driven Architecture with Apache Kafka, Debezium Change Data Capture (CDC), and real-time observability on Red Hat OpenShift.
+
+=== What You Will Learn
+
+* **Event-Driven Architecture** -- Understand how Kafka enables asynchronous, decoupled microservice communication.
+* **Event Generation** -- See a real application producing events from database changes using Debezium.
+* **Event Consumption** -- Build and explore event processing pipelines that react to CDC events.
+* **Change Data Capture (CDC)** -- Use Debezium to capture PostgreSQL WAL changes and stream them to Kafka topics.
+* **Monitoring & Traceability** -- Explore Grafana dashboards, Kafka metrics, and distributed tracing with OpenTelemetry.
+
+=== Architecture
+
+The workshop deploys the following components on your OpenShift cluster:
+
+[cols="1,2"]
+|===
+|Component |Description
+
+|AMQ Streams (Strimzi)
+|Apache Kafka 3.x cluster with KRaft (no ZooKeeper)
+
+|PostgreSQL 16
+|Source database with WAL logical replication enabled
+
+|Debezium
+|CDC connector capturing INSERT/UPDATE/DELETE from PostgreSQL
+
+|Kafka Connect
+|Connector runtime hosting Debezium source and HTTP Sink connectors
+
+|CDC Data Simulator
+|Python app generating realistic banking transactions
+
+|Email Transformer + Mailpit
+|Event consumer sending formatted CDC notifications
+
+|Kafka Streams Console
+|Web UI for browsing topics, messages, and consumer groups
+
+|Grafana
+|Dashboards for Kafka broker metrics, consumer lag, and Debezium stats
+
+|OpenTelemetry
+|Distributed tracing collector
+|===
+
+=== Duration
+
+Approximately **2 hours** for all modules.
+
+=== Prerequisites
+
+* A modern web browser
+* Access to the OpenShift cluster provided by the instructor
+* Your assigned username (`user1` through `user30`)
+* Password: `Welcome123!`

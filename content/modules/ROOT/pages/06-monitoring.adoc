@@ -1,0 +1,143 @@
+= Monitoring & Traceability
+
+== Objectives
+
+* Explore Kafka metrics in Grafana
+* Understand key performance indicators for Kafka and Debezium
+* Use the OpenShift Console monitoring
+* Explore distributed tracing concepts
+
+== Grafana Dashboards
+
+Open the **Grafana** dashboard:
+
+[source,text]
+----
+https://kafka-grafana-route-kafka-cdc.{cluster_domain}
+----
+
+Login: `admin` / `admin`
+
+Navigate to **Dashboards > Kafka CDC Overview**.
+
+=== Key Metrics
+
+[cols="1,2"]
+|===
+|Panel |What It Shows
+
+|Messages In Per Second
+|Rate of messages being produced to Kafka brokers
+
+|Bytes In Per Second
+|Data throughput across all topics
+
+|Consumer Group Lag
+|How far behind consumers are from the latest messages
+
+|Debezium Events
+|Rate of CDC events captured by Debezium
+
+|Kafka Connect Tasks Running
+|Number of active connector tasks
+
+|Active Partitions
+|Total partition count across all topics
+|===
+
+== OpenShift Console Monitoring
+
+The OpenShift Console also provides built-in monitoring. Navigate to:
+
+**Observe > Metrics**
+
+Try these PromQL queries:
+
+=== Kafka Broker Messages Rate
+
+[source,promql]
+----
+sum(rate(kafka_server_BrokerTopicMetrics_MessagesInPerSec[5m]))
+----
+
+=== Consumer Lag by Topic
+
+[source,promql]
+----
+sum by (topic) (kafka_consumergroup_lag)
+----
+
+=== Debezium Connector Status
+
+[source,promql]
+----
+debezium_metrics_Connected
+----
+
+=== Kafka Connect Task Status
+
+[source,promql]
+----
+kafka_connect_task_status
+----
+
+== Kafka Exporter Metrics
+
+The Kafka Exporter pod provides additional metrics:
+
+[source,bash,role="execute"]
+----
+oc get pods -n kafka-cdc -l strimzi.io/name=cdc-cluster-kafka-exporter
+----
+
+View exported metrics:
+
+[source,bash,role="execute"]
+----
+oc exec -it $(oc get pod -n kafka-cdc -l strimzi.io/name=cdc-cluster-kafka-exporter -o name | head -1) \
+  -n kafka-cdc -- curl -s localhost:9404/metrics | grep kafka_consumergroup_lag | head -10
+----
+
+== ServiceMonitors and PodMonitors
+
+The workshop deploys PodMonitors to scrape Kafka metrics:
+
+[source,bash,role="execute"]
+----
+oc get podmonitor -n kafka-cdc
+----
+
+These automatically configure Prometheus to scrape:
+
+* Kafka brokers (JMX metrics via Prometheus exporter)
+* Kafka Connect workers (connector and task metrics)
+* Kafka Bridge (HTTP request metrics)
+
+== Simulate Load and Observe
+
+Generate extra load to see metrics change. Scale up the simulator temporarily:
+
+[source,bash,role="execute"]
+----
+oc set env deployment/cdc-data-simulator INTERVAL_SECONDS=5 -n kafka-cdc
+----
+
+Watch the Grafana dashboard -- you should see:
+
+* Messages per second increase
+* Consumer lag potentially growing
+* Debezium events per second increasing
+
+After observing, restore the normal interval:
+
+[source,bash,role="execute"]
+----
+oc set env deployment/cdc-data-simulator INTERVAL_SECONDS=60 -n kafka-cdc
+----
+
+== Summary
+
+* [x] Grafana provides visual dashboards for Kafka, Connect, and Debezium metrics
+* [x] OpenShift Console offers built-in PromQL querying
+* [x] PodMonitors automatically scrape Kafka component metrics
+* [x] You can simulate load changes and observe the impact in real time

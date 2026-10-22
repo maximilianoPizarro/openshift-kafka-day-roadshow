@@ -1,0 +1,6 @@
+www/
+charts/*/charts/
+*.tgz
+Chart.lock
+.cache/
+node_modules/

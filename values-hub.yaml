@@ -1,0 +1,120 @@
+---
+clusterGroup:
+  name: hub
+  isHubCluster: true
+  targetCluster: in-cluster
+  sharedValueFiles: []
+  managedClusterGroups: {}
+  imperative:
+    jobs: []
+
+  argoProjects:
+    - hub
+    - platform
+    - data
+    - observability
+    - workshop
+
+  namespaces:
+    openshift-gitops:
+      operatorGroup: false
+    kafka-cdc:
+      operatorGroup: false
+    showroom:
+      operatorGroup: false
+    openshift-cluster-observability-operator:
+      operatorGroup: true
+      targetNamespaces: []
+    openshift-opentelemetry-operator:
+      operatorGroup: true
+      targetNamespaces: []
+
+  subscriptions:
+    amq-streams:
+      name: amq-streams
+      namespace: openshift-operators
+      channel: stable
+      source: redhat-operators
+    amq-streams-console:
+      name: amq-streams-console
+      namespace: openshift-operators
+      channel: stable
+      source: redhat-operators
+    cluster-observability-operator:
+      name: cluster-observability-operator
+      namespace: openshift-cluster-observability-operator
+      channel: stable
+      source: redhat-operators
+    grafana:
+      name: grafana-operator
+      namespace: openshift-operators
+      channel: v5
+      source: community-operators
+    opentelemetry:
+      name: opentelemetry-product
+      namespace: openshift-opentelemetry-operator
+      channel: stable
+      source: redhat-operators
+
+  applications:
+    platform:
+      name: platform
+      namespace: openshift-gitops
+      argoProject: platform
+      path: charts/all/platform
+      syncWave: "0"
+      annotations:
+        argocd.argoproj.io/sync-wave: "0"
+        argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+      extraLocalClusterDomainFields:
+        - clusterDomain
+      overrides:
+        - name: userCount
+          value: '{{ .Values.userCount | default 30 }}'
+
+    cdc-pipeline:
+      name: cdc-pipeline
+      namespace: kafka-cdc
+      argoProject: data
+      path: charts/all/cdc-pipeline
+      syncWave: "2"
+      annotations:
+        argocd.argoproj.io/sync-wave: "2"
+        argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+      extraLocalClusterDomainFields:
+        - clusterDomain
+      overrides:
+        - name: userCount
+          value: '{{ .Values.userCount | default 30 }}'
+        - name: postgresql.database
+          value: '{{ .Values.postgresql.database | default "cdcdb" }}'
+        - name: postgresql.username
+          value: '{{ .Values.postgresql.username | default "cdcuser" }}'
+        - name: postgresql.password
+          value: '{{ .Values.postgresql.password | default "cdc-demo-2024" }}'
+
+    observability:
+      name: observability
+      namespace: openshift-cluster-observability-operator
+      argoProject: observability
+      path: charts/all/observability
+      syncWave: "3"
+      annotations:
+        argocd.argoproj.io/sync-wave: "3"
+        argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+      extraLocalClusterDomainFields:
+        - clusterDomain
+
+    showroom:
+      name: showroom
+      namespace: showroom
+      argoProject: workshop
+      path: charts/all/showroom
+      syncWave: "4"
+      annotations:
+        argocd.argoproj.io/sync-wave: "4"
+      extraLocalClusterDomainFields:
+        - clusterDomain
+      overrides:
+        - name: userCount
+          value: '{{ .Values.userCount | default 30 }}'

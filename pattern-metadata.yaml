@@ -1,0 +1,60 @@
+metadata_version: "1.0"
+name: openshift-kafka-day-roadshow
+pattern_version: "1.0"
+description: >
+  Single-cluster Kafka & Debezium CDC workshop on OpenShift: event-driven
+  architecture with AMQ Streams, Change Data Capture, observability, and
+  Showroom lab guide. Hub-only Validated Pattern (no ACM, Vault, or ESO).
+display_name: OpenShift Kafka Day Roadshow
+repo_url: https://github.com/maximilianoPizarro/openshift-kafka-day-roadshow
+docs_repo_url: https://github.com/maximilianoPizarro/openshift-kafka-day-roadshow
+issues_url: https://github.com/maximilianoPizarro/openshift-kafka-day-roadshow/issues
+tier: sandbox
+org: maximilianoPizarro
+owners:
+  - maximilianoPizarro
+clustergroupname: hub
+maintainers:
+  - name: Maximiliano Pizarro
+    email: mapizarr@redhat.com
+    role: Specialist Solution Architect
+minOCPVersion: "4.17"
+gitBranch: main
+industries:
+  - financial-services
+  - retail
+  - manufacturing
+useCases:
+  - event-driven
+  - cdc
+  - streaming
+products:
+  - name: Red Hat OpenShift Container Platform
+    version: "4.21"
+  - name: Red Hat OpenShift GitOps
+    version: "1.14"
+  - name: Red Hat Streams for Apache Kafka (AMQ Streams)
+    version: stable
+  - name: Red Hat OpenShift Observability
+    version: stable
+requirements:
+  hub:
+    controlPlane:
+      platform:
+        aws:
+          replicas: 3
+          type: m6a.4xlarge
+    compute:
+      platform:
+        aws:
+          replicas: 2
+          type: m5a.4xlarge
+extra_features:
+  spoke_support: false
+  hub_only_support: true
+  hypershift_support: false
+external_requirements:
+  cluster_sizing_note: >
+    Development/testing: 2x m5a.4xlarge workers (32 vCPU / 128 Gi).
+    Workshop day (30 users): scale to 4x m5a.4xlarge workers (64 vCPU / 256 Gi).
+  pattern_cr_examples: examples/pattern-cr/

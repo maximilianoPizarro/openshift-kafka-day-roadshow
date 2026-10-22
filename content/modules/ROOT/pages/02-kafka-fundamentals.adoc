@@ -1,0 +1,122 @@
+= Kafka Fundamentals
+
+== Objectives
+
+* Understand Kafka architecture (brokers, topics, partitions)
+* Explore the Kafka cluster using the Streams Console
+* Produce and consume messages using the CLI
+
+== Kafka Architecture on OpenShift
+
+The workshop uses **AMQ Streams** (Red Hat's Kafka distribution based on Strimzi) running in **KRaft mode** (no ZooKeeper).
+
+=== Cluster Components
+
+[source,bash,role="execute"]
+----
+oc get kafka -n kafka-cdc
+----
+
+[source,bash,role="execute"]
+----
+oc get kafkanodepool -n kafka-cdc
+----
+
+=== Explore Topics
+
+List all Kafka topics:
+
+[source,bash,role="execute"]
+----
+oc get kafkatopic -n kafka-cdc
+----
+
+You should see these CDC topics:
+
+* `cdc.public.customers` -- Customer table changes
+* `cdc.public.orders` -- Order table changes
+* `dlq.cdc-errors` -- Dead letter queue for failed events
+
+== Kafka Streams Console
+
+Open the **Kafka Streams Console** to visually explore topics, partitions, and consumer groups:
+
+[source,text]
+----
+https://kafka-console-kafka-cdc.{cluster_domain}
+----
+
+. Navigate to **Topics** and select `cdc.public.orders`
+. Click on a partition to see individual messages
+. Notice the JSON structure of Debezium CDC events
+
+== CLI: Produce Messages
+
+You can produce messages directly from the command line. Start a console producer:
+
+[source,bash,role="execute"]
+----
+oc run kafka-producer -ti --rm \
+  --image=registry.redhat.io/amq-streams/kafka-38-rhel9:latest \
+  --restart=Never \
+  -n kafka-cdc \
+  -- bin/kafka-console-producer.sh \
+    --broker-list cdc-cluster-kafka-bootstrap:9092 \
+    --topic test-workshop
+----
+
+Type a few messages and press Enter after each:
+
+[source,text]
+----
+Hello from the Kafka workshop!
+Event-driven architecture rocks
+{"user": "user1", "action": "test"}
+----
+
+Press `Ctrl+C` to exit.
+
+== CLI: Consume Messages
+
+In a new terminal, start a consumer to read those messages:
+
+[source,bash,role="execute"]
+----
+oc run kafka-consumer -ti --rm \
+  --image=registry.redhat.io/amq-streams/kafka-38-rhel9:latest \
+  --restart=Never \
+  -n kafka-cdc \
+  -- bin/kafka-console-consumer.sh \
+    --bootstrap-server cdc-cluster-kafka-bootstrap:9092 \
+    --topic test-workshop \
+    --from-beginning
+----
+
+You should see all the messages you produced.
+
+== Explore the Kafka Bridge REST API
+
+The Kafka Bridge exposes a REST API for producing and consuming messages via HTTP:
+
+[source,bash,role="execute"]
+----
+curl -s https://kafka-bridge-kafka-cdc.{cluster_domain}/topics | python3 -m json.tool
+----
+
+Produce a message via REST:
+
+[source,bash,role="execute"]
+----
+curl -X POST https://kafka-bridge-kafka-cdc.{cluster_domain}/topics/test-workshop \
+  -H "Content-Type: application/vnd.kafka.json.v2+json" \
+  -d '{"records": [{"value": {"message": "Hello from REST API!", "user": "user1"}}]}'
+----
+
+== Summary
+
+You now understand:
+
+* [x] Kafka brokers, topics, partitions, and consumer groups
+* [x] How to explore topics in the Streams Console
+* [x] CLI-based message production and consumption
+* [x] REST API via Kafka Bridge

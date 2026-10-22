@@ -1,0 +1,5 @@
+apiVersion: v2
+name: cdc-pipeline
+description: Kafka cluster, Debezium CDC, PostgreSQL, data simulator, and email consumer
+version: 0.1.0
+type: application

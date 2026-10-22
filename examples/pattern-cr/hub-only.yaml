@@ -1,0 +1,23 @@
+# Hub-only Kafka & Debezium CDC Workshop
+#
+# Use when:
+# - Single cluster (no spokes)
+# - Development: 2x m5a.4xlarge workers
+# - Workshop day: scale to 4x m5a.4xlarge workers
+#
+# Apply: oc apply -f examples/pattern-cr/hub-only.yaml
+---
+apiVersion: gitops.hybrid-cloud-patterns.io/v1alpha1
+kind: Pattern
+metadata:
+  name: openshift-kafka-day-roadshow
+  namespace: openshift-operators
+spec:
+  clusterGroupName: hub
+  gitSpec:
+    targetRepo: https://github.com/maximilianoPizarro/openshift-kafka-day-roadshow.git
+    targetRevision: main
+  multiSourceConfig:
+    enabled: true
+    clusterGroupChartVersion: "0.9.*"
+    helmRepoUrl: https://charts.validatedpatterns.io
