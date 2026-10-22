@@ -40,22 +40,38 @@ data:
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>OpenShift Kafka Day Roadshow</title>
       <style>
-        body { font-family: 'Red Hat Display', 'Segoe UI', sans-serif; margin: 0; padding: 0; background: #151515; color: #e0e0e0; }
-        .header { background: #c00; color: white; padding: 20px 40px; }
-        .header h1 { margin: 0; font-size: 28px; }
-        .header p { margin: 5px 0 0; opacity: 0.9; }
-        .container { max-width: 1000px; margin: 30px auto; padding: 0 20px; }
-        .card { background: #1e1e1e; border: 1px solid #333; border-radius: 8px; padding: 20px; margin-bottom: 15px; }
-        .card h3 { color: #e44; margin-top: 0; }
-        .card a { color: #6cf; text-decoration: none; }
-        .card a:hover { text-decoration: underline; }
-        table { width: 100%; border-collapse: collapse; margin: 15px 0; }
-        th, td { text-align: left; padding: 10px 15px; border-bottom: 1px solid #333; }
-        th { color: #e44; font-weight: 600; }
-        .badge { display: inline-block; background: #c00; color: white; padding: 2px 10px; border-radius: 12px; font-size: 12px; margin-left: 8px; }
-        code { background: #2a2a2a; padding: 2px 6px; border-radius: 3px; font-size: 14px; }
-        .links { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-        @media (max-width: 600px) { .links { grid-template-columns: 1fr; } }
+        *{box-sizing:border-box}
+        body{font-family:'Red Hat Display','Segoe UI',sans-serif;margin:0;padding:0;background:#151515;color:#e0e0e0}
+        .header{background:#c00;color:#fff;padding:24px 40px;text-align:center}
+        .header h1{margin:0;font-size:30px}
+        .header p{margin:6px 0 0;opacity:.9;font-size:16px}
+        .container{max-width:560px;margin:40px auto;padding:0 20px}
+        .card{background:#1e1e1e;border:1px solid #333;border-radius:10px;padding:28px;margin-bottom:20px}
+        .card h3{color:#e44;margin:0 0 16px;font-size:20px}
+        a{color:#6cf;text-decoration:none}
+        a:hover{text-decoration:underline}
+        code{background:#2a2a2a;padding:3px 8px;border-radius:4px;font-size:14px;color:#fff}
+        label{display:block;font-weight:600;margin-bottom:8px;color:#ccc;font-size:14px}
+        select{width:100%;padding:12px 14px;font-size:16px;border:1px solid #444;border-radius:6px;background:#252525;color:#fff;appearance:auto;cursor:pointer}
+        select:focus{outline:2px solid #e44;border-color:#e44}
+        .btn{display:block;width:100%;padding:14px;font-size:17px;font-weight:700;border:none;border-radius:8px;cursor:pointer;transition:all .2s;text-align:center;margin-top:18px}
+        .btn-primary{background:#c00;color:#fff}
+        .btn-primary:hover{background:#e00;transform:translateY(-1px);box-shadow:0 4px 12px rgba(204,0,0,.4)}
+        .btn-primary:disabled{background:#555;cursor:not-allowed;transform:none;box-shadow:none}
+        .credentials{display:none;background:#0d2137;border:1px solid #1a4a7a;border-radius:8px;padding:18px;margin-top:16px}
+        .credentials.visible{display:block;animation:fadeIn .3s ease}
+        .cred-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #1a3a5a}
+        .cred-row:last-child{border:none}
+        .cred-label{color:#8ab;font-size:13px;text-transform:uppercase;letter-spacing:.5px}
+        .cred-value{font-family:monospace;font-size:15px;color:#6cf}
+        .tools{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+        .tool-link{display:block;background:#252525;border:1px solid #333;border-radius:6px;padding:12px;text-align:center;font-size:14px;transition:border-color .2s}
+        .tool-link:hover{border-color:#e44;text-decoration:none}
+        .tool-label{display:block;font-size:11px;color:#888;margin-top:4px}
+        .divider{border:none;border-top:1px solid #333;margin:20px 0}
+        .footer{text-align:center;padding:20px;color:#666;font-size:12px}
+        @keyframes fadeIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+        @media(max-width:500px){.tools{grid-template-columns:1fr}.container{padding:0 12px}}
       </style>
     </head>
     <body>
@@ -63,48 +79,111 @@ data:
         <h1>OpenShift Kafka Day Roadshow</h1>
         <p>Event-Driven Architecture with Kafka, Debezium CDC &amp; Observability</p>
       </div>
+
       <div class="container">
-        <div class="card">
-          <h3>Workshop Access</h3>
-          <p><strong>Username:</strong> <code>user1</code> through <code>user30</code></p>
-          <p><strong>Password:</strong> <code>Welcome123!</code></p>
-          <p><strong>OCP Console:</strong> <a href="https://console-openshift-console.{{ .Values.clusterDomain }}" target="_blank">https://console-openshift-console.{{ .Values.clusterDomain }}</a></p>
+        <!-- Registration Card -->
+        <div class="card" id="register-card">
+          <h3>Workshop Registration</h3>
+          <p style="color:#aaa;margin:0 0 18px;font-size:14px">Select your assigned user to get your credentials and access the lab.</p>
+
+          <label for="user-select">Select your user</label>
+          <select id="user-select">
+            <option value="" disabled selected>-- Choose your user --</option>
+          </select>
+
+          <div class="credentials" id="creds-panel">
+            <div class="cred-row">
+              <span class="cred-label">Username</span>
+              <span class="cred-value" id="cred-user">—</span>
+            </div>
+            <div class="cred-row">
+              <span class="cred-label">Password</span>
+              <span class="cred-value">Welcome123!</span>
+            </div>
+            <div class="cred-row">
+              <span class="cred-label">Namespace</span>
+              <span class="cred-value" id="cred-ns">—</span>
+            </div>
+            <div class="cred-row">
+              <span class="cred-label">CLI Login</span>
+              <span class="cred-value" id="cred-cli" style="font-size:11px;word-break:break-all">—</span>
+            </div>
+          </div>
+
+          <button class="btn btn-primary" id="start-btn" disabled onclick="startLab()">
+            Start Lab
+          </button>
         </div>
 
+        <!-- Quick Links (always visible) -->
         <div class="card">
           <h3>Workshop Tools</h3>
-          <div class="links">
-            <div><a href="https://kafka-console-kafka-cdc.{{ .Values.clusterDomain }}" target="_blank">Kafka Streams Console</a><span class="badge">Topics & Messages</span></div>
-            <div><a href="https://mailpit-kafka-cdc.{{ .Values.clusterDomain }}" target="_blank">Mailpit</a><span class="badge">CDC Notifications</span></div>
-            <div><a href="https://kafka-grafana-route-kafka-cdc.{{ .Values.clusterDomain }}" target="_blank">Grafana</a><span class="badge">Dashboards</span></div>
-            <div><a href="https://kafka-bridge-kafka-cdc.{{ .Values.clusterDomain }}/topics" target="_blank">Kafka Bridge</a><span class="badge">REST API</span></div>
+          <div class="tools">
+            <a class="tool-link" href="https://console-openshift-console.{{ .Values.clusterDomain }}" target="_blank">
+              OCP Console<span class="tool-label">Cluster Management</span>
+            </a>
+            <a class="tool-link" href="https://mailpit-kafka-cdc.{{ .Values.clusterDomain }}" target="_blank">
+              Mailpit<span class="tool-label">CDC Notifications</span>
+            </a>
+            <a class="tool-link" href="https://kafka-grafana-route-kafka-cdc.{{ .Values.clusterDomain }}" target="_blank">
+              Grafana<span class="tool-label">Kafka Dashboards</span>
+            </a>
+            <a class="tool-link" href="https://kafka-bridge-kafka-cdc.{{ .Values.clusterDomain }}/topics" target="_blank">
+              Kafka Bridge<span class="tool-label">REST API</span>
+            </a>
           </div>
         </div>
-
-        <div class="card">
-          <h3>Workshop Modules</h3>
-          <table>
-            <tr><th>#</th><th>Module</th><th>Duration</th></tr>
-            <tr><td>Setup</td><td>Lab Setup &amp; Overview</td><td>15 min</td></tr>
-            <tr><td>01</td><td>Kafka Fundamentals</td><td>20 min</td></tr>
-            <tr><td>02</td><td>Event Producer: Real Application</td><td>20 min</td></tr>
-            <tr><td>03</td><td>Event Consumer: Processing Pipeline</td><td>15 min</td></tr>
-            <tr><td>04</td><td>Debezium CDC</td><td>25 min</td></tr>
-            <tr><td>05</td><td>Monitoring &amp; Traceability</td><td>20 min</td></tr>
-            <tr><td>06</td><td>Wrap-up</td><td>10 min</td></tr>
-          </table>
-        </div>
-
-        <div class="card">
-          <h3>Lab Guide</h3>
-          <p>Full lab instructions: <a href="https://github.com/maximilianoPizarro/openshift-kafka-day-roadshow/tree/main/content/modules/ROOT/pages" target="_blank">Workshop Content on GitHub</a></p>
-        </div>
-
-        <div class="card">
-          <h3>CLI Quick Start</h3>
-          <p><code>oc login -u user1 -p 'Welcome123!' https://api.{{ .Values.clusterDomain | replace "apps." "" }}:6443</code></p>
-        </div>
       </div>
+
+      <div class="footer">
+        OpenShift Kafka Day Roadshow &mdash; Validated Pattern
+      </div>
+
+      <script>
+        const USER_COUNT = {{ .Values.userCount }};
+        const LAB_URL = 'https://maximilianopizarro.github.io/openshift-kafka-day-roadshow/kafka-day-roadshow/main/index.html';
+        const API_SERVER = 'https://api.{{ .Values.clusterDomain | replace "apps." "" }}:6443';
+
+        // Populate user options
+        (function() {
+          var s = document.getElementById('user-select');
+          for (var i = 1; i <= USER_COUNT; i++) {
+            var o = document.createElement('option');
+            o.value = 'user' + i;
+            o.textContent = 'user' + i;
+            s.appendChild(o);
+          }
+        })();
+        const sel = document.getElementById('user-select');
+        const btn = document.getElementById('start-btn');
+        const panel = document.getElementById('creds-panel');
+
+        sel.addEventListener('change', function() {
+          const u = this.value;
+          if (!u) return;
+          document.getElementById('cred-user').textContent = u;
+          document.getElementById('cred-ns').textContent = u + '-workshop';
+          document.getElementById('cred-cli').textContent = "oc login -u " + u + " -p 'Welcome123!' " + API_SERVER;
+          panel.classList.add('visible');
+          btn.disabled = false;
+          btn.textContent = 'Start Lab as ' + u;
+          localStorage.setItem('kafka-workshop-user', u);
+        });
+
+        function startLab() {
+          const u = sel.value;
+          if (!u) return;
+          const url = LAB_URL + '?user=' + encodeURIComponent(u);
+          window.location.href = url;
+        }
+
+        // Restore previous selection
+        const saved = localStorage.getItem('kafka-workshop-user');
+        if (saved) {
+          sel.value = saved;
+          sel.dispatchEvent(new Event('change'));
+        }
+      </script>
     </body>
     </html>
 ---
