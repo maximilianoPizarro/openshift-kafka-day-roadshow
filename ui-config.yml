@@ -9,8 +9,9 @@ view_switcher:
   default_mode: split
 
 antora:
-  name: kafka-day-roadshow
-  version: main
+  modules:
+    - name: kafka-day-roadshow
+      version: main
 
 tabs:
   - name: OCP Console
