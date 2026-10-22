@@ -196,44 +196,58 @@ data:
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>Workshop Registration — OpenShift Kafka Day Roadshow</title>
+      <link rel="icon" href="https://demo.redhat.com/images/favicon.ico" type="image/x-icon">
       <link rel="preconnect" href="https://fonts.googleapis.com">
       <link href="https://fonts.googleapis.com/css2?family=Red+Hat+Display:wght@400;500;700&family=Red+Hat+Text:wght@400;500&display=swap" rel="stylesheet">
       <style>
         *{margin:0;padding:0;box-sizing:border-box}
-        body{font-family:'Red Hat Text',sans-serif;background:#f0f0f0;min-height:100vh;display:flex;flex-direction:column}
-        .header{background:#151515;padding:16px 32px;display:flex;align-items:center;gap:16px}
-        .header .brand{color:#ee0000;font-family:'Red Hat Display',sans-serif;font-weight:700;font-size:1rem;letter-spacing:.5px}
-        .header h1{color:#fff;font-family:'Red Hat Display',sans-serif;font-size:1.1rem;font-weight:500}
-        .main{flex:1;display:flex;align-items:center;justify-content:center;padding:32px}
+        body{font-family:'Red Hat Text',sans-serif;background:#fff;color:#151515;min-height:100vh;display:flex;flex-direction:column;padding-top:3.5rem}
+        .navbar{background:#1f144a;color:#fff;font-family:'Red Hat Display',sans-serif;height:3.5rem;position:fixed;top:0;width:100%;z-index:4;display:flex;align-items:center}
+        .navbar-brand{display:flex;align-items:center;height:3.5rem;flex-shrink:0}
+        .navbar-logo{margin-left:1rem;display:flex;align-items:center}
+        .navbar-logo-img{height:2rem;width:auto}
+        .site-title{color:#fff;font-weight:700;font-size:1.1rem;padding:.5rem 1rem;text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .site-title:hover{text-decoration:none;color:#fff}
+        .main{flex:1;display:flex;align-items:center;justify-content:center;padding:32px;background:#f2f2f2}
         .card{background:#fff;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.1);padding:48px;max-width:480px;width:100%}
-        .card h2{font-family:'Red Hat Display',sans-serif;font-size:1.5rem;color:#151515;margin-bottom:8px}
-        .card p{color:#6a6e73;font-size:.95rem;margin-bottom:32px;line-height:1.5}
+        .card h2{font-family:'Red Hat Display',sans-serif;font-size:1.5rem;color:#151515;margin-bottom:8px;font-weight:500}
+        .card p{color:#4d4d4d;font-size:.95rem;margin-bottom:32px;line-height:1.5}
         .form-group{margin-bottom:24px}
         .form-group label{display:block;font-weight:500;color:#151515;margin-bottom:8px;font-size:.9rem}
-        .form-group input{width:100%;padding:10px 14px;border:1px solid #d2d2d2;border-radius:4px;font-size:1rem;font-family:'Red Hat Text',sans-serif;transition:border-color .2s}
+        .form-group input{width:100%;padding:10px 14px;border:1px solid #c7c7c7;border-radius:4px;font-size:1rem;font-family:'Red Hat Text',sans-serif;transition:border-color .2s}
         .form-group input:focus{outline:none;border-color:#0066cc;box-shadow:0 0 0 1px #0066cc}
         .btn{width:100%;padding:12px;background:#ee0000;color:#fff;border:none;border-radius:4px;font-size:1rem;font-weight:500;cursor:pointer;font-family:'Red Hat Display',sans-serif;transition:background .2s}
         .btn:hover{background:#c00}
-        .btn:disabled{background:#d2d2d2;cursor:not-allowed}
+        .btn:disabled{background:#c7c7c7;cursor:not-allowed}
         .error{color:#c9190b;font-size:.85rem;margin-top:8px;display:none}
         .success-card{text-align:center}
         .success-card .icon{font-size:48px;color:#3e8635;margin-bottom:16px}
         .success-card h2{color:#3e8635}
-        .success-card .username{background:#f0f0f0;border-radius:4px;padding:12px;font-size:1.2rem;font-weight:700;color:#151515;margin:16px 0;font-family:'Red Hat Display',sans-serif}
-        .success-card .creds{background:#f5f5f5;border-radius:4px;padding:16px;text-align:left;margin:16px 0;font-size:.9rem;color:#333}
-        .success-card .creds code{background:#e8e8e8;padding:2px 6px;border-radius:3px;font-size:.85rem}
+        .success-card .username{background:#f2f2f2;border-radius:4px;padding:12px;font-size:1.2rem;font-weight:700;color:#151515;margin:16px 0;font-family:'Red Hat Display',sans-serif}
+        .success-card .creds{background:#f2f2f2;border-radius:4px;padding:16px;text-align:left;margin:16px 0;font-size:.9rem;color:#333}
+        .success-card .creds code{background:#e0e0e0;padding:2px 6px;border-radius:3px;font-size:.85rem}
         .success-card .btn{margin-top:24px;background:#0066cc}
         .success-card .btn:hover{background:#004080}
-        .footer{background:#151515;color:#6a6e73;text-align:center;padding:16px;font-size:.8rem}
+        footer.footer{background-color:#e0e0e0;color:#4d4d4d;font-size:.83333rem;line-height:1.6;padding:0}
+        .footer .poweredBy{display:flex;flex-direction:row;width:100%;align-items:center;gap:16px;justify-content:center;padding:12px 32px;text-decoration:none;color:#4d4d4d}
+        .footer .poweredBy:hover{text-decoration:none;color:#151515}
+        .footer .poweredBy p{font-size:14px;margin:0}
+        .footer .poweredBy img{height:28px;width:auto}
         .spinner{display:inline-block;width:18px;height:18px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:8px}
         @keyframes spin{to{transform:rotate(360deg)}}
       </style>
     </head>
     <body>
-      <div class="header">
-        <span class="brand">Red Hat</span>
-        <h1>OpenShift Kafka Day Roadshow</h1>
-      </div>
+      <header class="header">
+        <nav class="navbar">
+          <div class="navbar-brand">
+            <span class="navbar-logo">
+              <img src="https://showroom-showroom.{{ $domain }}/_/img/logo-demo-platform.svg" alt="Red Hat Demo Platform" class="navbar-logo-img">
+            </span>
+            <a class="site-title" href="#">OpenShift Kafka Day Roadshow</a>
+          </div>
+        </nav>
+      </header>
       <div class="main">
         <div class="card" id="register-card">
           <h2>Workshop Registration</h2>
@@ -258,7 +272,12 @@ data:
           <button class="btn" onclick="goToLab()">Open Lab Environment</button>
         </div>
       </div>
-      <div class="footer">OpenShift Kafka Day Roadshow — Validated Pattern</div>
+      <footer class="footer">
+        <a href="https://demo.redhat.com" target="_blank" class="poweredBy">
+          <p>Powered by</p>
+          <img src="https://showroom-showroom.{{ $domain }}/_/img/logo-demo-platform.svg" alt="Red Hat Demo Platform" style="filter:brightness(0)">
+        </a>
+      </footer>
       <script>
         var redirectUrl = '';
         function register() {
@@ -314,17 +333,22 @@ data:
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>Workshop Admin — OpenShift Kafka Day Roadshow</title>
+      <link rel="icon" href="https://demo.redhat.com/images/favicon.ico" type="image/x-icon">
       <link href="https://fonts.googleapis.com/css2?family=Red+Hat+Display:wght@400;500;700&family=Red+Hat+Text:wght@400;500&display=swap" rel="stylesheet">
       <style>
         *{margin:0;padding:0;box-sizing:border-box}
-        body{font-family:'Red Hat Text',sans-serif;background:#f0f0f0;min-height:100vh;display:flex;flex-direction:column}
-        .header{background:#151515;padding:16px 32px;display:flex;align-items:center;gap:16px}
-        .header h1{color:#fff;font-family:'Red Hat Display',sans-serif;font-size:1.1rem;font-weight:500}
+        body{font-family:'Red Hat Text',sans-serif;background:#f2f2f2;color:#151515;min-height:100vh;display:flex;flex-direction:column;padding-top:3.5rem}
+        .navbar{background:#1f144a;color:#fff;font-family:'Red Hat Display',sans-serif;height:3.5rem;position:fixed;top:0;width:100%;z-index:4;display:flex;align-items:center}
+        .navbar-brand{display:flex;align-items:center;height:3.5rem;flex-shrink:0}
+        .navbar-logo{margin-left:1rem;display:flex;align-items:center}
+        .navbar-logo-img{height:2rem;width:auto}
+        .site-title{color:#fff;font-weight:700;font-size:1.1rem;padding:.5rem 1rem;text-decoration:none;white-space:nowrap}
+        .site-title:hover{text-decoration:none;color:#fff}
         .main{flex:1;padding:32px;max-width:960px;margin:0 auto;width:100%}
         .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px}
         .stat-card{background:#fff;border-radius:8px;padding:24px;box-shadow:0 1px 4px rgba(0,0,0,.08);text-align:center}
         .stat-card .number{font-size:2rem;font-weight:700;font-family:'Red Hat Display',sans-serif;color:#151515}
-        .stat-card .label{color:#6a6e73;font-size:.85rem;margin-top:4px}
+        .stat-card .label{color:#4d4d4d;font-size:.85rem;margin-top:4px}
         .stat-card.green .number{color:#3e8635}
         .stat-card.blue .number{color:#0066cc}
         .stat-card.red .number{color:#c9190b}
@@ -334,28 +358,41 @@ data:
         .btn-primary:hover{background:#004080}
         .btn-danger{background:#c9190b;color:#fff}
         .btn-danger:hover{background:#a30000}
-        .btn-outline{background:#fff;color:#151515;border:1px solid #d2d2d2}
-        .btn-outline:hover{background:#f0f0f0}
+        .btn-outline{background:#fff;color:#151515;border:1px solid #c7c7c7}
+        .btn-outline:hover{background:#f2f2f2}
         .table-wrap{background:#fff;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.08);overflow:hidden}
         table{width:100%;border-collapse:collapse}
-        th{background:#f0f0f0;padding:12px 16px;text-align:left;font-weight:500;font-size:.85rem;color:#6a6e73;text-transform:uppercase;letter-spacing:.5px}
-        td{padding:12px 16px;border-top:1px solid #f0f0f0;font-size:.9rem}
+        th{background:#f2f2f2;padding:12px 16px;text-align:left;font-weight:500;font-size:.85rem;color:#4d4d4d;text-transform:uppercase;letter-spacing:.5px}
+        td{padding:12px 16px;border-top:1px solid #f2f2f2;font-size:.9rem}
         tr:hover td{background:#fafafa}
         .badge{display:inline-block;padding:2px 10px;border-radius:12px;font-size:.8rem;font-weight:500;background:#e7f1fa;color:#0066cc}
         .btn-sm{padding:4px 12px;font-size:.8rem}
-        .empty{text-align:center;padding:48px;color:#6a6e73}
+        .empty{text-align:center;padding:48px;color:#4d4d4d}
         .login-card{background:#fff;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.1);padding:48px;max-width:400px;margin:80px auto}
-        .login-card h2{font-family:'Red Hat Display',sans-serif;margin-bottom:24px}
+        .login-card h2{font-family:'Red Hat Display',sans-serif;margin-bottom:24px;font-weight:500}
         .form-group{margin-bottom:20px}
         .form-group label{display:block;font-weight:500;margin-bottom:8px;font-size:.9rem}
-        .form-group input{width:100%;padding:10px 14px;border:1px solid #d2d2d2;border-radius:4px;font-size:1rem;font-family:'Red Hat Text',sans-serif}
+        .form-group input{width:100%;padding:10px 14px;border:1px solid #c7c7c7;border-radius:4px;font-size:1rem;font-family:'Red Hat Text',sans-serif}
         .form-group input:focus{outline:none;border-color:#0066cc;box-shadow:0 0 0 1px #0066cc}
-        .footer{background:#151515;color:#6a6e73;text-align:center;padding:16px;font-size:.8rem}
+        footer.footer{background-color:#e0e0e0;color:#4d4d4d;font-size:.83333rem;line-height:1.6;padding:0;margin-top:auto}
+        .footer .poweredBy{display:flex;flex-direction:row;width:100%;align-items:center;gap:16px;justify-content:center;padding:12px 32px;text-decoration:none;color:#4d4d4d}
+        .footer .poweredBy:hover{text-decoration:none;color:#151515}
+        .footer .poweredBy p{font-size:14px;margin:0}
+        .footer .poweredBy img{height:28px;width:auto}
         .error{color:#c9190b;font-size:.85rem;margin-top:8px;display:none}
       </style>
     </head>
     <body>
-      <div class="header"><h1>Workshop Admin Dashboard</h1></div>
+      <header class="header">
+        <nav class="navbar">
+          <div class="navbar-brand">
+            <span class="navbar-logo">
+              <img src="https://showroom-showroom.{{ $domain }}/_/img/logo-demo-platform.svg" alt="Red Hat Demo Platform" class="navbar-logo-img">
+            </span>
+            <a class="site-title" href="#">Workshop Admin — OpenShift Kafka Day Roadshow</a>
+          </div>
+        </nav>
+      </header>
       <div id="login-view">
         <div class="login-card">
           <h2>Admin Access</h2>
@@ -387,7 +424,12 @@ data:
           </div>
         </div>
       </div>
-      <div class="footer">OpenShift Kafka Day Roadshow — Validated Pattern</div>
+      <footer class="footer">
+        <a href="https://demo.redhat.com" target="_blank" class="poweredBy">
+          <p>Powered by</p>
+          <img src="https://showroom-showroom.{{ $domain }}/_/img/logo-demo-platform.svg" alt="Red Hat Demo Platform" style="filter:brightness(0)">
+        </a>
+      </footer>
       <script>
         var adminToken = '__ADMIN_TOKEN__';
         var users = [];
