@@ -1,6 +1,6 @@
 userCount: 30
 clusterDomain: ""
 showroom:
-  image: ghcr.io/rhpds/showroom-deployer:latest
+  image: registry.access.redhat.com/ubi9/httpd-24:latest
   contentRepo: https://github.com/maximilianoPizarro/openshift-kafka-day-roadshow.git
   contentBranch: main

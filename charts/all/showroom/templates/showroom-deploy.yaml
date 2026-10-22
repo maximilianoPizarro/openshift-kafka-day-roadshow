@@ -24,6 +24,90 @@ data:
     grafana_url: "https://kafka-grafana-route-kafka-cdc.{{ .Values.clusterDomain }}"
     bridge_url: "https://kafka-bridge-kafka-cdc.{{ .Values.clusterDomain }}"
 ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: showroom-index
+  namespace: showroom
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+data:
+  index.html: |
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>OpenShift Kafka Day Roadshow</title>
+      <style>
+        body { font-family: 'Red Hat Display', 'Segoe UI', sans-serif; margin: 0; padding: 0; background: #151515; color: #e0e0e0; }
+        .header { background: #c00; color: white; padding: 20px 40px; }
+        .header h1 { margin: 0; font-size: 28px; }
+        .header p { margin: 5px 0 0; opacity: 0.9; }
+        .container { max-width: 1000px; margin: 30px auto; padding: 0 20px; }
+        .card { background: #1e1e1e; border: 1px solid #333; border-radius: 8px; padding: 20px; margin-bottom: 15px; }
+        .card h3 { color: #e44; margin-top: 0; }
+        .card a { color: #6cf; text-decoration: none; }
+        .card a:hover { text-decoration: underline; }
+        table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+        th, td { text-align: left; padding: 10px 15px; border-bottom: 1px solid #333; }
+        th { color: #e44; font-weight: 600; }
+        .badge { display: inline-block; background: #c00; color: white; padding: 2px 10px; border-radius: 12px; font-size: 12px; margin-left: 8px; }
+        code { background: #2a2a2a; padding: 2px 6px; border-radius: 3px; font-size: 14px; }
+        .links { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        @media (max-width: 600px) { .links { grid-template-columns: 1fr; } }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>OpenShift Kafka Day Roadshow</h1>
+        <p>Event-Driven Architecture with Kafka, Debezium CDC &amp; Observability</p>
+      </div>
+      <div class="container">
+        <div class="card">
+          <h3>Workshop Access</h3>
+          <p><strong>Username:</strong> <code>user1</code> through <code>user30</code></p>
+          <p><strong>Password:</strong> <code>Welcome123!</code></p>
+          <p><strong>OCP Console:</strong> <a href="https://console-openshift-console.{{ .Values.clusterDomain }}" target="_blank">https://console-openshift-console.{{ .Values.clusterDomain }}</a></p>
+        </div>
+
+        <div class="card">
+          <h3>Workshop Tools</h3>
+          <div class="links">
+            <div><a href="https://kafka-console-kafka-cdc.{{ .Values.clusterDomain }}" target="_blank">Kafka Streams Console</a><span class="badge">Topics & Messages</span></div>
+            <div><a href="https://mailpit-kafka-cdc.{{ .Values.clusterDomain }}" target="_blank">Mailpit</a><span class="badge">CDC Notifications</span></div>
+            <div><a href="https://kafka-grafana-route-kafka-cdc.{{ .Values.clusterDomain }}" target="_blank">Grafana</a><span class="badge">Dashboards</span></div>
+            <div><a href="https://kafka-bridge-kafka-cdc.{{ .Values.clusterDomain }}/topics" target="_blank">Kafka Bridge</a><span class="badge">REST API</span></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Workshop Modules</h3>
+          <table>
+            <tr><th>#</th><th>Module</th><th>Duration</th></tr>
+            <tr><td>Setup</td><td>Lab Setup &amp; Overview</td><td>15 min</td></tr>
+            <tr><td>01</td><td>Kafka Fundamentals</td><td>20 min</td></tr>
+            <tr><td>02</td><td>Event Producer: Real Application</td><td>20 min</td></tr>
+            <tr><td>03</td><td>Event Consumer: Processing Pipeline</td><td>15 min</td></tr>
+            <tr><td>04</td><td>Debezium CDC</td><td>25 min</td></tr>
+            <tr><td>05</td><td>Monitoring &amp; Traceability</td><td>20 min</td></tr>
+            <tr><td>06</td><td>Wrap-up</td><td>10 min</td></tr>
+          </table>
+        </div>
+
+        <div class="card">
+          <h3>Lab Guide</h3>
+          <p>Full lab instructions: <a href="https://github.com/maximilianoPizarro/openshift-kafka-day-roadshow/tree/main/content/modules/ROOT/pages" target="_blank">Workshop Content on GitHub</a></p>
+        </div>
+
+        <div class="card">
+          <h3>CLI Quick Start</h3>
+          <p><code>oc login -u user1 -p 'Welcome123!' https://api.{{ .Values.clusterDomain | replace "apps." "" }}:6443</code></p>
+        </div>
+      </div>
+    </body>
+    </html>
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -44,29 +128,28 @@ spec:
         app: showroom
     spec:
       containers:
-        - name: showroom
+        - name: httpd
           image: {{ .Values.showroom.image }}
           ports:
             - containerPort: 8080
               name: http
-          env:
-            - name: GIT_REPO_URL
-              value: {{ .Values.showroom.contentRepo }}
-            - name: GIT_REPO_REF
-              value: {{ .Values.showroom.contentBranch }}
-            - name: CONTENT_PATH
-              value: content
           volumeMounts:
+            - name: content
+              mountPath: /var/www/html/index.html
+              subPath: index.html
             - name: user-data
-              mountPath: /user-data
+              mountPath: /var/www/html/user-data
           resources:
             requests:
-              cpu: 100m
-              memory: 128Mi
+              cpu: 50m
+              memory: 64Mi
             limits:
-              cpu: 500m
-              memory: 512Mi
+              cpu: 200m
+              memory: 256Mi
       volumes:
+        - name: content
+          configMap:
+            name: showroom-index
         - name: user-data
           configMap:
             name: showroom-user-data
