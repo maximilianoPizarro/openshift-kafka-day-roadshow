@@ -17,7 +17,7 @@ tabs:
     url: 'https://console-openshift-console.${DOMAIN}'
 
   - name: Terminal
-    path: /wetty
+    path: /terminal
     port: 443
 
   - name: Kafka Console

@@ -39,12 +39,9 @@ You should see these CDC topics:
 
 == Kafka Streams Console
 
-Open the **Kafka Streams Console** to visually explore topics, partitions, and consumer groups:
+Open the **Kafka Streams Console** (use the *Kafka Console* tab, or open this URL) to visually explore topics, partitions, and consumer groups:
 
-[source,text]
-----
-https://kafka-console-kafka-cdc.{cluster_domain}
-----
+link:{kafka_console_url}[{kafka_console_url},window=_blank]
 
 . Navigate to **Topics** and select `cdc.public.orders`
 . Click on a partition to see individual messages
@@ -100,14 +97,14 @@ The Kafka Bridge exposes a REST API for producing and consuming messages via HTT
 
 [source,bash,role="execute"]
 ----
-curl -s https://kafka-bridge-kafka-cdc.{cluster_domain}/topics | python3 -m json.tool
+curl -s {bridge_url}/topics | python3 -m json.tool
 ----
 
 Produce a message via REST:
 
 [source,bash,role="execute"]
 ----
-curl -X POST https://kafka-bridge-kafka-cdc.{cluster_domain}/topics/test-workshop \
+curl -X POST {bridge_url}/topics/test-workshop \
   -H "Content-Type: application/vnd.kafka.json.v2+json" \
   -d '{"records": [{"value": {"message": "Hello from REST API!", "user": "user1"}}]}'
 ----

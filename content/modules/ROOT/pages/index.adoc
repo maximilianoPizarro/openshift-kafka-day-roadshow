@@ -14,7 +14,7 @@ Welcome to the **OpenShift Kafka Day Roadshow** -- a hands-on workshop covering 
 --
 * *Username:* `user1` through `user30`
 * *Password:* `{user_password}`
-* *Console:* {openshift_cluster_console_url}[window=_blank]
+* *Console:* link:{openshift_cluster_console_url}[OpenShift Console,window=_blank]
 --
 
 == What You Will Learn

@@ -1,6 +1,32 @@
 userCount: 30
 clusterDomain: ""
+
 showroom:
-  image: registry.access.redhat.com/ubi9/httpd-24:latest
-  contentRepo: https://github.com/maximilianoPizarro/openshift-kafka-day-roadshow.git
-  contentBranch: main
+  name: showroom
+  namespace: showroom
+  content:
+    image: quay.io/rhpds/showroom-content:v1.4.3
+    repoUrl: https://github.com/maximilianoPizarro/openshift-kafka-day-roadshow.git
+    repoRef: main
+    antoraPlaybook: site.yml
+    zeroTouchBundle: https://github.com/rhpds/nookbag/releases/download/nookbag-v0.5.1/nookbag-v0.5.1.zip
+  terminal:
+    enabled: true
+    image: quay.io/rhpds/openshift-showroom-terminal-ocp:latest
+    resources:
+      requests:
+        cpu: 500m
+        memory: 512Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
+  proxy:
+    image: quay.io/rhpds/traefik:v3.7.9
+  gitCloner:
+    image: quay.io/rhpds/git-cloner:v1.1.5
+  antora:
+    image: quay.io/rhpds/antora:v1.3.0
+  registration:
+    enabled: true
+    maxUsers: 30
+    adminToken: workshop-admin-2024

@@ -9,25 +9,22 @@
 
 == Step 1: Log in to the OpenShift Console
 
-Open the OpenShift Console in your browser:
+Open the OpenShift Console (use the *OCP Console* tab in your workshop interface, or open this URL):
 
-[source,text]
-----
-https://console-openshift-console.{cluster_domain}
-----
+link:https://console-openshift-console.{cluster_domain}[OpenShift Console,window=_blank]
 
 Log in with your assigned credentials:
 
 * **Username:** `userN` (where N is your assigned number)
-* **Password:** `Welcome123!`
+* **Password:** `{user_password}`
 
 == Step 2: CLI Login
 
-Open a terminal and log in using the `oc` CLI:
+Use the *Terminal* tab in your workshop interface and log in with the `oc` CLI:
 
 [source,bash,role="execute"]
 ----
-oc login -u user1 -p 'Welcome123!' https://api.{cluster_base}:6443
+oc login -u user1 -p '{user_password}' https://api.{cluster_base}:6443
 ----
 
 Verify your identity:
@@ -58,23 +55,23 @@ You should see pods running for:
 
 == Step 4: Access the Key UIs
 
-Open each of these URLs in your browser:
+Use the workshop tabs or open these URLs:
 
 [cols="1,2"]
 |===
 |Tool |URL
 
 |Kafka Streams Console
-|`https://kafka-console-kafka-cdc.{cluster_domain}`
+|link:{kafka_console_url}[{kafka_console_url},window=_blank]
 
 |Mailpit (Email Viewer)
-|`https://mailpit-kafka-cdc.{cluster_domain}`
+|link:{mailpit_url}[{mailpit_url},window=_blank]
 
 |Grafana
-|`https://kafka-grafana-route-kafka-cdc.{cluster_domain}`
+|link:{grafana_url}[{grafana_url},window=_blank]
 
 |Kafka Bridge REST API
-|`https://kafka-bridge-kafka-cdc.{cluster_domain}/topics`
+|link:{bridge_url}/topics[{bridge_url}/topics,window=_blank]
 |===
 
 == Step 5: Verify Your Personal Namespace

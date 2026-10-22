@@ -9,12 +9,9 @@
 
 == Grafana Dashboards
 
-Open the **Grafana** dashboard:
+Open the **Grafana** dashboard (use the workshop links, or open this URL):
 
-[source,text]
-----
-https://kafka-grafana-route-kafka-cdc.{cluster_domain}
-----
+link:{grafana_url}[{grafana_url},window=_blank]
 
 Login: `admin` / `admin`
 

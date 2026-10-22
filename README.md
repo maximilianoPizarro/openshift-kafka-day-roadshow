@@ -42,9 +42,19 @@ Deployed as a **Validated Pattern** (hub-only, single cluster).
 oc apply -f examples/pattern-cr/hub-only.yaml
 ```
 
+### Access
+
+| Service | URL |
+|---------|-----|
+| **Workshop Registration** | `https://workshop-registration.apps.<domain>` |
+| **Showroom (Lab Guide)** | `https://showroom-showroom.apps.<domain>` |
+| **Registration Admin** | `https://workshop-registration.apps.<domain>/admin` (token: `workshop-admin-2024`) |
+
+Participants enter their email on the registration page, get assigned `userN`, and are redirected to the lab guide with Terminal, OCP Console, and Kafka Console tabs.
+
 ### Users
 
-30 pre-provisioned users: `user1` through `user30`, password `Welcome123!`
+30 pre-provisioned HTPasswd users: `user1` through `user30`, password `Welcome123!`
 
 ## Cluster Sizing
 

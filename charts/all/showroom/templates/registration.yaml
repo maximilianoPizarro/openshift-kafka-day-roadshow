@@ -1,0 +1,571 @@
+{{- if .Values.showroom.registration.enabled }}
+{{- $domain := .Values.clusterDomain | default "apps.cluster.example.com" }}
+{{- $showroomUrl := printf "https://showroom-showroom.%s" $domain }}
+{{- $maxUsers := .Values.showroom.registration.maxUsers | default .Values.userCount | default 30 }}
+{{- $adminToken := .Values.showroom.registration.adminToken | default "workshop-admin-2024" }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: workshop-registration-data
+  namespace: showroom
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: workshop-registration-app
+  namespace: showroom
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+data:
+  app.py: |
+    #!/usr/bin/env python3
+    """Workshop Registration Service for OpenShift Kafka Day Roadshow."""
+    import http.server, json, os, datetime, urllib.parse, threading
+
+    DATA_FILE = os.environ.get('DATA_FILE', '/data/users.json')
+    MAX_USERS = int(os.environ.get('MAX_USERS', '30'))
+    ADMIN_TOKEN = os.environ.get('ADMIN_TOKEN', 'change-me')
+    SHOWROOM_URL = os.environ.get('SHOWROOM_URL', '')
+    CLUSTER_DOMAIN = os.environ.get('CLUSTER_DOMAIN', '')
+    PORT = int(os.environ.get('PORT', '8080'))
+
+    lock = threading.Lock()
+
+    def load_users():
+        try:
+            with open(DATA_FILE) as f:
+                return json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            return []
+
+    def save_users(users):
+        os.makedirs(os.path.dirname(DATA_FILE), exist_ok=True)
+        with open(DATA_FILE, 'w') as f:
+            json.dump(users, f, indent=2)
+
+    REGISTRATION_HTML = open('/app/index.html').read() if os.path.exists('/app/index.html') else '<h1>Registration</h1>'
+    ADMIN_HTML = open('/app/admin.html').read() if os.path.exists('/app/admin.html') else '<h1>Admin</h1>'
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def log_message(self, fmt, *args):
+            print(f'{self.client_address[0]} - {fmt % args}')
+
+        def send_json(self, data, code=200):
+            body = json.dumps(data).encode()
+            self.send_response(code)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Content-Length', str(len(body)))
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(body)
+
+        def send_html(self, html, code=200):
+            body = html.encode()
+            self.send_response(code)
+            self.send_header('Content-Type', 'text/html; charset=utf-8')
+            self.send_header('Content-Length', str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def check_admin(self):
+            auth = self.headers.get('Authorization', '')
+            token = self.headers.get('X-Admin-Token', '')
+            qp = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            qt = qp.get('token', [''])[0]
+            if token == ADMIN_TOKEN or qt == ADMIN_TOKEN or auth == f'Bearer {ADMIN_TOKEN}':
+                return True
+            self.send_json({'error': 'Unauthorized'}, 401)
+            return False
+
+        def do_OPTIONS(self):
+            self.send_response(204)
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+            self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Admin-Token')
+            self.end_headers()
+
+        def do_GET(self):
+            parsed = urllib.parse.urlparse(self.path)
+            path = parsed.path.rstrip('/')
+            if path == '' or path == '/index.html':
+                self.send_html(REGISTRATION_HTML)
+            elif path == '/admin':
+                qp = urllib.parse.parse_qs(parsed.query)
+                qt = qp.get('token', [''])[0]
+                if qt != ADMIN_TOKEN:
+                    self.send_html(ADMIN_HTML.replace('__ADMIN_TOKEN__', ''))
+                else:
+                    self.send_html(ADMIN_HTML.replace('__ADMIN_TOKEN__', qt))
+            elif path == '/api/users':
+                if not self.check_admin():
+                    return
+                with lock:
+                    users = load_users()
+                self.send_json({'users': users, 'maxUsers': MAX_USERS, 'available': MAX_USERS - len(users)})
+            elif path == '/api/health':
+                self.send_json({'status': 'ok', 'registered': len(load_users()), 'maxUsers': MAX_USERS})
+            else:
+                self.send_json({'error': 'Not found'}, 404)
+
+        def do_POST(self):
+            parsed = urllib.parse.urlparse(self.path)
+            path = parsed.path.rstrip('/')
+            content_length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(content_length) if content_length > 0 else b'{}'
+
+            if path == '/api/register':
+                try:
+                    data = json.loads(body)
+                except json.JSONDecodeError:
+                    self.send_json({'error': 'Invalid JSON'}, 400)
+                    return
+                email = data.get('email', '').strip().lower()
+                if not email or '@' not in email:
+                    self.send_json({'error': 'Valid email required'}, 400)
+                    return
+                with lock:
+                    users = load_users()
+                    for u in users:
+                        if u['email'] == email:
+                            redirect = f'{SHOWROOM_URL}/?USER_NAME={u["username"]}&CLUSTER_DOMAIN={CLUSTER_DOMAIN}'
+                            self.send_json({'username': u['username'], 'redirect': redirect, 'existing': True})
+                            return
+                    assigned = set(u['username'] for u in users)
+                    username = None
+                    for i in range(1, MAX_USERS + 1):
+                        candidate = f'user{i}'
+                        if candidate not in assigned:
+                            username = candidate
+                            break
+                    if not username:
+                        self.send_json({'error': 'All seats are taken. Please contact the workshop administrator.'}, 503)
+                        return
+                    entry = {
+                        'username': username,
+                        'email': email,
+                        'registered_at': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                    }
+                    users.append(entry)
+                    save_users(users)
+                redirect = f'{SHOWROOM_URL}/?USER_NAME={username}&CLUSTER_DOMAIN={CLUSTER_DOMAIN}'
+                self.send_json({'username': username, 'redirect': redirect, 'existing': False})
+
+            elif path == '/api/reset':
+                if not self.check_admin():
+                    return
+                with lock:
+                    save_users([])
+                self.send_json({'message': 'All registrations cleared'})
+
+            elif path == '/api/users/delete':
+                if not self.check_admin():
+                    return
+                try:
+                    data = json.loads(body)
+                except json.JSONDecodeError:
+                    self.send_json({'error': 'Invalid JSON'}, 400)
+                    return
+                username = data.get('username', '')
+                with lock:
+                    users = load_users()
+                    users = [u for u in users if u['username'] != username]
+                    save_users(users)
+                self.send_json({'message': f'{username} removed'})
+            else:
+                self.send_json({'error': 'Not found'}, 404)
+
+    if __name__ == '__main__':
+        print(f'Workshop Registration Service starting on port {PORT}')
+        print(f'Max users: {MAX_USERS} | Showroom: {SHOWROOM_URL}')
+        server = http.server.ThreadingHTTPServer(('0.0.0.0', PORT), Handler)
+        server.serve_forever()
+
+  index.html: |
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Workshop Registration — OpenShift Kafka Day Roadshow</title>
+      <link rel="preconnect" href="https://fonts.googleapis.com">
+      <link href="https://fonts.googleapis.com/css2?family=Red+Hat+Display:wght@400;500;700&family=Red+Hat+Text:wght@400;500&display=swap" rel="stylesheet">
+      <style>
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Red Hat Text',sans-serif;background:#f0f0f0;min-height:100vh;display:flex;flex-direction:column}
+        .header{background:#151515;padding:16px 32px;display:flex;align-items:center;gap:16px}
+        .header .brand{color:#ee0000;font-family:'Red Hat Display',sans-serif;font-weight:700;font-size:1rem;letter-spacing:.5px}
+        .header h1{color:#fff;font-family:'Red Hat Display',sans-serif;font-size:1.1rem;font-weight:500}
+        .main{flex:1;display:flex;align-items:center;justify-content:center;padding:32px}
+        .card{background:#fff;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.1);padding:48px;max-width:480px;width:100%}
+        .card h2{font-family:'Red Hat Display',sans-serif;font-size:1.5rem;color:#151515;margin-bottom:8px}
+        .card p{color:#6a6e73;font-size:.95rem;margin-bottom:32px;line-height:1.5}
+        .form-group{margin-bottom:24px}
+        .form-group label{display:block;font-weight:500;color:#151515;margin-bottom:8px;font-size:.9rem}
+        .form-group input{width:100%;padding:10px 14px;border:1px solid #d2d2d2;border-radius:4px;font-size:1rem;font-family:'Red Hat Text',sans-serif;transition:border-color .2s}
+        .form-group input:focus{outline:none;border-color:#0066cc;box-shadow:0 0 0 1px #0066cc}
+        .btn{width:100%;padding:12px;background:#ee0000;color:#fff;border:none;border-radius:4px;font-size:1rem;font-weight:500;cursor:pointer;font-family:'Red Hat Display',sans-serif;transition:background .2s}
+        .btn:hover{background:#c00}
+        .btn:disabled{background:#d2d2d2;cursor:not-allowed}
+        .error{color:#c9190b;font-size:.85rem;margin-top:8px;display:none}
+        .success-card{text-align:center}
+        .success-card .icon{font-size:48px;color:#3e8635;margin-bottom:16px}
+        .success-card h2{color:#3e8635}
+        .success-card .username{background:#f0f0f0;border-radius:4px;padding:12px;font-size:1.2rem;font-weight:700;color:#151515;margin:16px 0;font-family:'Red Hat Display',sans-serif}
+        .success-card .creds{background:#f5f5f5;border-radius:4px;padding:16px;text-align:left;margin:16px 0;font-size:.9rem;color:#333}
+        .success-card .creds code{background:#e8e8e8;padding:2px 6px;border-radius:3px;font-size:.85rem}
+        .success-card .btn{margin-top:24px;background:#0066cc}
+        .success-card .btn:hover{background:#004080}
+        .footer{background:#151515;color:#6a6e73;text-align:center;padding:16px;font-size:.8rem}
+        .spinner{display:inline-block;width:18px;height:18px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:8px}
+        @keyframes spin{to{transform:rotate(360deg)}}
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <span class="brand">Red Hat</span>
+        <h1>OpenShift Kafka Day Roadshow</h1>
+      </div>
+      <div class="main">
+        <div class="card" id="register-card">
+          <h2>Workshop Registration</h2>
+          <p>Enter your email to get started. You will be automatically assigned a workshop user and redirected to the lab environment.</p>
+          <div class="form-group">
+            <label for="email">Email address</label>
+            <input type="email" id="email" placeholder="you@company.com" autocomplete="email" autofocus>
+            <div class="error" id="error-msg"></div>
+          </div>
+          <button class="btn" id="register-btn" onclick="register()">Start Workshop</button>
+        </div>
+        <div class="card success-card" id="success-card" style="display:none">
+          <div class="icon">&#10003;</div>
+          <h2>You're all set!</h2>
+          <p>Your assigned workshop user is:</p>
+          <div class="username" id="assigned-user"></div>
+          <div class="creds">
+            <div><strong>Password:</strong> <code>Welcome123!</code></div>
+            <div style="margin-top:8px"><strong>Namespace:</strong> <code id="assigned-ns"></code></div>
+          </div>
+          <p>You will be redirected to the lab environment automatically.</p>
+          <button class="btn" onclick="goToLab()">Open Lab Environment</button>
+        </div>
+      </div>
+      <div class="footer">OpenShift Kafka Day Roadshow — Validated Pattern</div>
+      <script>
+        var redirectUrl = '';
+        function register() {
+          var email = document.getElementById('email').value.trim();
+          var errEl = document.getElementById('error-msg');
+          var btn = document.getElementById('register-btn');
+          errEl.style.display = 'none';
+          if (!email || email.indexOf('@') < 1) {
+            errEl.textContent = 'Please enter a valid email address.';
+            errEl.style.display = 'block';
+            return;
+          }
+          btn.disabled = true;
+          btn.innerHTML = '<span class="spinner"></span> Registering...';
+          fetch('/api/register', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({email: email})
+          })
+          .then(function(r) { return r.json().then(function(d) { return {ok: r.ok, data: d}; }); })
+          .then(function(res) {
+            if (!res.ok) {
+              errEl.textContent = res.data.error || 'Registration failed.';
+              errEl.style.display = 'block';
+              btn.disabled = false;
+              btn.textContent = 'Start Workshop';
+              return;
+            }
+            redirectUrl = res.data.redirect;
+            document.getElementById('assigned-user').textContent = res.data.username;
+            document.getElementById('assigned-ns').textContent = res.data.username + '-workshop';
+            document.getElementById('register-card').style.display = 'none';
+            document.getElementById('success-card').style.display = 'block';
+            setTimeout(function() { if (redirectUrl) window.location.href = redirectUrl; }, 3000);
+          })
+          .catch(function() {
+            errEl.textContent = 'Network error. Please try again.';
+            errEl.style.display = 'block';
+            btn.disabled = false;
+            btn.textContent = 'Start Workshop';
+          });
+        }
+        function goToLab() { if (redirectUrl) window.location.href = redirectUrl; }
+        document.getElementById('email').addEventListener('keypress', function(e) { if (e.key === 'Enter') register(); });
+      </script>
+    </body>
+    </html>
+
+  admin.html: |
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Workshop Admin — OpenShift Kafka Day Roadshow</title>
+      <link href="https://fonts.googleapis.com/css2?family=Red+Hat+Display:wght@400;500;700&family=Red+Hat+Text:wght@400;500&display=swap" rel="stylesheet">
+      <style>
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Red Hat Text',sans-serif;background:#f0f0f0;min-height:100vh;display:flex;flex-direction:column}
+        .header{background:#151515;padding:16px 32px;display:flex;align-items:center;gap:16px}
+        .header h1{color:#fff;font-family:'Red Hat Display',sans-serif;font-size:1.1rem;font-weight:500}
+        .main{flex:1;padding:32px;max-width:960px;margin:0 auto;width:100%}
+        .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px}
+        .stat-card{background:#fff;border-radius:8px;padding:24px;box-shadow:0 1px 4px rgba(0,0,0,.08);text-align:center}
+        .stat-card .number{font-size:2rem;font-weight:700;font-family:'Red Hat Display',sans-serif;color:#151515}
+        .stat-card .label{color:#6a6e73;font-size:.85rem;margin-top:4px}
+        .stat-card.green .number{color:#3e8635}
+        .stat-card.blue .number{color:#0066cc}
+        .stat-card.red .number{color:#c9190b}
+        .actions{display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap}
+        .btn{padding:10px 20px;border:none;border-radius:4px;font-size:.9rem;font-weight:500;cursor:pointer;font-family:'Red Hat Display',sans-serif;transition:background .2s}
+        .btn-primary{background:#0066cc;color:#fff}
+        .btn-primary:hover{background:#004080}
+        .btn-danger{background:#c9190b;color:#fff}
+        .btn-danger:hover{background:#a30000}
+        .btn-outline{background:#fff;color:#151515;border:1px solid #d2d2d2}
+        .btn-outline:hover{background:#f0f0f0}
+        .table-wrap{background:#fff;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.08);overflow:hidden}
+        table{width:100%;border-collapse:collapse}
+        th{background:#f0f0f0;padding:12px 16px;text-align:left;font-weight:500;font-size:.85rem;color:#6a6e73;text-transform:uppercase;letter-spacing:.5px}
+        td{padding:12px 16px;border-top:1px solid #f0f0f0;font-size:.9rem}
+        tr:hover td{background:#fafafa}
+        .badge{display:inline-block;padding:2px 10px;border-radius:12px;font-size:.8rem;font-weight:500;background:#e7f1fa;color:#0066cc}
+        .btn-sm{padding:4px 12px;font-size:.8rem}
+        .empty{text-align:center;padding:48px;color:#6a6e73}
+        .login-card{background:#fff;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.1);padding:48px;max-width:400px;margin:80px auto}
+        .login-card h2{font-family:'Red Hat Display',sans-serif;margin-bottom:24px}
+        .form-group{margin-bottom:20px}
+        .form-group label{display:block;font-weight:500;margin-bottom:8px;font-size:.9rem}
+        .form-group input{width:100%;padding:10px 14px;border:1px solid #d2d2d2;border-radius:4px;font-size:1rem;font-family:'Red Hat Text',sans-serif}
+        .form-group input:focus{outline:none;border-color:#0066cc;box-shadow:0 0 0 1px #0066cc}
+        .footer{background:#151515;color:#6a6e73;text-align:center;padding:16px;font-size:.8rem}
+        .error{color:#c9190b;font-size:.85rem;margin-top:8px;display:none}
+      </style>
+    </head>
+    <body>
+      <div class="header"><h1>Workshop Admin Dashboard</h1></div>
+      <div id="login-view">
+        <div class="login-card">
+          <h2>Admin Access</h2>
+          <div class="form-group">
+            <label for="token-input">Admin Token</label>
+            <input type="password" id="token-input" placeholder="Enter admin token">
+            <div class="error" id="login-error"></div>
+          </div>
+          <button class="btn btn-primary" style="width:100%" onclick="login()">Sign In</button>
+        </div>
+      </div>
+      <div id="admin-view" style="display:none">
+        <div class="main">
+          <div class="stats">
+            <div class="stat-card green"><div class="number" id="s-registered">0</div><div class="label">Registered</div></div>
+            <div class="stat-card blue"><div class="number" id="s-available">0</div><div class="label">Available</div></div>
+            <div class="stat-card red"><div class="number" id="s-total">0</div><div class="label">Total Seats</div></div>
+          </div>
+          <div class="actions">
+            <button class="btn btn-primary" onclick="refresh()">Refresh</button>
+            <button class="btn btn-outline" onclick="exportCsv()">Export CSV</button>
+            <button class="btn btn-danger" onclick="resetAll()">Reset All</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>User</th><th>Email</th><th>Registered</th><th>Actions</th></tr></thead>
+              <tbody id="user-table"><tr><td colspan="4" class="empty">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="footer">OpenShift Kafka Day Roadshow — Validated Pattern</div>
+      <script>
+        var adminToken = '__ADMIN_TOKEN__';
+        var users = [];
+        function login() {
+          var t = document.getElementById('token-input').value.trim();
+          if (!t) return;
+          adminToken = t;
+          fetch('/api/users', {headers: {'X-Admin-Token': t}})
+          .then(function(r) {
+            if (!r.ok) { document.getElementById('login-error').textContent = 'Invalid token'; document.getElementById('login-error').style.display = 'block'; return; }
+            return r.json();
+          })
+          .then(function(data) {
+            if (!data) return;
+            document.getElementById('login-view').style.display = 'none';
+            document.getElementById('admin-view').style.display = 'block';
+            renderData(data);
+            var url = new URL(window.location);
+            url.searchParams.set('token', adminToken);
+            window.history.replaceState({}, '', url);
+          });
+        }
+        function refresh() {
+          fetch('/api/users', {headers: {'X-Admin-Token': adminToken}})
+          .then(function(r) { return r.json(); })
+          .then(renderData);
+        }
+        function renderData(data) {
+          users = data.users || [];
+          document.getElementById('s-registered').textContent = users.length;
+          document.getElementById('s-available').textContent = data.available;
+          document.getElementById('s-total').textContent = data.maxUsers;
+          var tbody = document.getElementById('user-table');
+          if (users.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="empty">No registrations yet</td></tr>';
+            return;
+          }
+          var html = '';
+          users.forEach(function(u) {
+            var ts = new Date(u.registered_at).toLocaleString();
+            html += '<tr><td><span class="badge">' + u.username + '</span></td><td>' + u.email + '</td><td>' + ts + '</td><td><button class="btn btn-danger btn-sm" onclick="removeUser(\'' + u.username + '\')">Remove</button></td></tr>';
+          });
+          tbody.innerHTML = html;
+        }
+        function removeUser(username) {
+          if (!confirm('Remove ' + username + '?')) return;
+          fetch('/api/users/delete', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-Admin-Token': adminToken},
+            body: JSON.stringify({username: username})
+          }).then(refresh);
+        }
+        function resetAll() {
+          if (!confirm('Reset ALL registrations? This cannot be undone.')) return;
+          fetch('/api/reset', {method: 'POST', headers: {'X-Admin-Token': adminToken}}).then(refresh);
+        }
+        function exportCsv() {
+          var csv = 'Username,Email,Registered At\n';
+          users.forEach(function(u) { csv += u.username + ',' + u.email + ',' + u.registered_at + '\n'; });
+          var blob = new Blob([csv], {type: 'text/csv'});
+          var a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = 'workshop-registrations.csv';
+          a.click();
+        }
+        if (adminToken && adminToken !== '__ADMIN_TOKEN__') {
+          document.getElementById('login-view').style.display = 'none';
+          document.getElementById('admin-view').style.display = 'block';
+          refresh();
+        }
+        document.getElementById('token-input').addEventListener('keypress', function(e) { if (e.key === 'Enter') login(); });
+      </script>
+    </body>
+    </html>
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: workshop-registration
+  namespace: showroom
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+  labels:
+    app: workshop-registration
+    demo.redhat.com/application: workshop-registration
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: workshop-registration
+  template:
+    metadata:
+      labels:
+        app: workshop-registration
+    spec:
+      containers:
+        - name: app
+          image: registry.access.redhat.com/ubi9/python-311:latest
+          command: ["python3", "/app/app.py"]
+          ports:
+            - containerPort: 8080
+          env:
+            - name: PORT
+              value: "8080"
+            - name: DATA_FILE
+              value: /data/users.json
+            - name: MAX_USERS
+              value: {{ $maxUsers | quote }}
+            - name: ADMIN_TOKEN
+              value: {{ $adminToken | quote }}
+            - name: SHOWROOM_URL
+              value: {{ $showroomUrl | quote }}
+            - name: CLUSTER_DOMAIN
+              value: {{ $domain | quote }}
+          volumeMounts:
+            - name: app-code
+              mountPath: /app
+            - name: data
+              mountPath: /data
+          resources:
+            limits:
+              cpu: 200m
+              memory: 256Mi
+            requests:
+              cpu: 50m
+              memory: 64Mi
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 10
+      volumes:
+        - name: app-code
+          configMap:
+            name: workshop-registration-app
+        - name: data
+          persistentVolumeClaim:
+            claimName: workshop-registration-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: workshop-registration
+  namespace: showroom
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+  selector:
+    app: workshop-registration
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: workshop-registration
+  namespace: showroom
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  host: workshop-registration.{{ $domain }}
+  to:
+    kind: Service
+    name: workshop-registration
+  port:
+    targetPort: 8080
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None
+{{- end }}

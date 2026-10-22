@@ -11,6 +11,14 @@ asciidoc:
     page-pagination: true
     user_password: "Welcome123!"
     kafka_bootstrap: "cdc-cluster-kafka-bootstrap.kafka-cdc.svc:9092"
+    # Placeholders overridden at build time by showroom-content from user_data.yml
+    cluster_domain: "apps.cluster.example.com"
+    cluster_base: "cluster.example.com"
+    openshift_cluster_console_url: "https://console-openshift-console.apps.cluster.example.com"
+    kafka_console_url: "https://kafka-console-kafka-cdc.apps.cluster.example.com"
+    mailpit_url: "https://mailpit-kafka-cdc.apps.cluster.example.com"
+    grafana_url: "https://kafka-grafana-route-kafka-cdc.apps.cluster.example.com"
+    bridge_url: "https://kafka-bridge-kafka-cdc.apps.cluster.example.com"
     page-links:
       - url: https://docs.redhat.com/en/documentation/red_hat_amq_streams
         text: AMQ Streams Docs
