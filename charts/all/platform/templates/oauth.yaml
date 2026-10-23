@@ -1,3 +1,4 @@
+{{- $domain := .Values.clusterDomain | default "apps.cluster.example.com" }}
 apiVersion: config.openshift.io/v1
 kind: OAuth
 metadata:
@@ -7,6 +8,24 @@ metadata:
     argocd.argoproj.io/sync-options: ServerSideApply=true
 spec:
   identityProviders:
+    - name: rhbk
+      mappingMethod: claim
+      type: OpenID
+      openID:
+        clientID: idp-4-ocp
+        clientSecret:
+          name: openid-client-secret-bb6zw
+        extraScopes:
+          - email
+          - profile
+        claims:
+          preferredUsername:
+            - preferred_username
+          name:
+            - name
+          email:
+            - email
+        issuer: https://sso.{{ $domain }}/realms/sso
     - name: workshop-htpasswd
       mappingMethod: claim
       type: HTPasswd
