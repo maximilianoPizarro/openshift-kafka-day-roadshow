@@ -1,14 +1,22 @@
 = Kafka Fundamentals
 
+****
+*Guiding question:* What is a topic, and can you put a message on one?
+****
+
 == Objectives
 
 * Understand Kafka architecture (brokers, topics, partitions)
-* Explore the Kafka cluster using the Streams Console
+* Explore the Kafka cluster using the Kafka Console
 * Produce and consume messages using the CLI
 
 == Kafka Architecture on OpenShift
 
-The workshop uses **AMQ Streams** (Red Hat's Kafka distribution based on Strimzi) running in **KRaft mode** (no ZooKeeper).
+The workshop uses **Red Hat AMQ Streams** (Apache Kafka 4.2, based on Strimzi) running in **KRaft mode** (no ZooKeeper).
+
+A *topic* is a named log of messages. A *partition* is a slice of that log so Kafka can scale reads and writes. *Replicas* are copies of a partition across brokers for durability.
+
+You are here: Kafka and the Kafka Console. PostgreSQL and Debezium stay gray until the next modules.
 
 === Cluster Components
 
@@ -22,7 +30,7 @@ oc get kafka -n kafka-cdc
 oc get kafkanodepool -n kafka-cdc
 ----
 
-.Expected KafkaNodePool (offline reference)
+.Expected KafkaNodePool (reference, not a step)
 [source,yaml]
 ----
 apiVersion: kafka.strimzi.io/v1beta2
@@ -55,13 +63,13 @@ List all Kafka topics:
 oc get kafkatopic -n kafka-cdc
 ----
 
-You should see these CDC topics:
+You should see these CDC topics (among others):
 
 * `cdc.public.customers` -- Customer table changes
 * `cdc.public.orders` -- Order table changes
 * `dlq.cdc-errors` -- Dead letter queue for failed events
 
-.Expected topic (offline reference)
+.Expected topic (reference, not a step)
 [source,yaml]
 ----
 apiVersion: kafka.strimzi.io/v1beta2
@@ -76,15 +84,17 @@ spec:
   replicas: 3
 ----
 
-== Kafka Streams Console
+== Kafka Console
 
-Open the **Kafka Streams Console** (use the *Kafka Console* tab, or open this URL) to visually explore topics, partitions, and consumer groups:
+Open the **Kafka Console** (use the *Kafka Console* tab, or open this URL) to visually explore topics and partitions:
 
 link:{kafka_console_url}[{kafka_console_url},window=_blank]
 
 . Navigate to **Topics** and select `cdc.public.orders`
 . Click on a partition to see individual messages
-. Notice the JSON structure of Debezium CDC events
+. Confirm a message exists. The JSON is a change event; the Debezium CDC module defines each field. For now, confirm a message exists.
+
+You will also see messages from other participants on shared topics. That is expected.
 
 == CLI: Produce Messages
 
@@ -107,11 +117,11 @@ printf '%s\n' \
     --topic test-workshop
 ----
 
-The command finishes with `pod "kafka-producer" deleted`.
+The command finishes with `pod "kafka-producer" deleted`. A PodSecurity warning on create is expected if the pod still runs and is deleted at the end.
 
 == CLI: Consume Messages
 
-Read the messages back. The consumer stops on its own after five records:
+Read the messages back. The consumer stops on its own after five records. Shared topics may also show messages from other participants:
 
 [source,bash,role="execute",subs="+attributes"]
 ----
@@ -126,18 +136,11 @@ oc run kafka-consumer -i --rm \
     --max-messages 5
 ----
 
-You should see the messages you produced.
+You should see the messages you produced, including `Hello from the Kafka workshop!`.
 
 == Explore the Kafka Bridge REST API
 
-The Kafka Bridge exposes a REST API for producing and consuming messages via HTTP:
-
-[source,bash,role="execute",subs="+attributes"]
-----
-curl -sk {bridge_url}/topics | python3 -m json.tool
-----
-
-Produce a message via REST:
+The Kafka Bridge exposes a REST API for producing messages via HTTP:
 
 [source,bash,role="execute",subs="+attributes"]
 ----
@@ -146,11 +149,15 @@ curl -sk -X POST {bridge_url}/topics/test-workshop \
   -d '{"records": [{"value": {"message": "Hello from REST API!", "user": "user1"}}]}'
 ----
 
+A successful response includes an `offsets` array.
+
 == Summary
 
 You now understand:
 
-* [x] Kafka brokers, topics, partitions, and consumer groups
-* [x] How to explore topics in the Streams Console
+* [x] Kafka brokers, topics, and partitions
+* [x] How to explore topics in the Kafka Console
 * [x] CLI-based message production and consumption
-* [x] REST API via Kafka Bridge
+* [x] REST produce via Kafka Bridge
+
+*Bridge:* Kafka can hold a message. Next: who is writing the banking rows, and did your insert leave the database?

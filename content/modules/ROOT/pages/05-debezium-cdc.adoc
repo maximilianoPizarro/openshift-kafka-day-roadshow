@@ -1,5 +1,15 @@
 = Debezium CDC
 
+****
+*Guiding question:* How did a database row become a Kafka record?
+****
+
+== Where we are
+
+You have seen a PostgreSQL insert turn into a Kafka message and an email. This module names the component that copies the row: Debezium, reading the PostgreSQL WAL.
+
+You are here: solid arrow from PostgreSQL through Debezium into Kafka.
+
 == Objectives
 
 * Understand Change Data Capture (CDC) concepts
@@ -16,7 +26,7 @@
 * **No application changes** -- capture events at the database level, not in app code
 * **Complete audit trail** -- every INSERT, UPDATE, DELETE is captured
 * **Low latency** -- events are streamed in near real-time via WAL
-* **Schema evolution** -- Debezium handles schema changes gracefully
+* **Database shape changes** -- Debezium can follow new columns without rewriting the banking app
 
 == Debezium on Kafka Connect
 
@@ -36,7 +46,7 @@ debezium-postgresql-source    cdc-connect   io.debezium.connector.postgresql.Pos
 mailpit-http-sink             cdc-connect   io.aiven.kafka.connect.http.HttpSinkConnector            1           True
 ----
 
-.Expected Debezium connector (offline reference)
+.Expected Debezium connector (reference, not a step)
 [source,yaml]
 ----
 apiVersion: kafka.strimzi.io/v1beta2
@@ -128,6 +138,8 @@ Operation types:
 * `d` -- **Delete** (DELETE) -- includes `before`, `after` is null
 * `r` -- **Read** (Snapshot)
 
+Open the *Kafka Console* tab, select `cdc.public.customers`, and confirm an event whose `op` is one of those values.
+
 == Check Connector Status
 
 [source,bash,role="execute"]
@@ -159,7 +171,7 @@ Failed events are routed to the `dlq.cdc-errors` topic:
 
 [source,bash,role="execute",subs="+attributes"]
 ----
-oc run dlq-check -ti --rm \
+oc run dlq-check -i --rm \
   --image={kafka_cli_image} \
   --restart=Never \
   -n $(oc whoami)-workshop \
@@ -171,28 +183,32 @@ oc run dlq-check -ti --rm \
     --timeout-ms 5000
 ----
 
-If the DLQ is empty, that means all CDC events are processing successfully.
+If you see `TimeoutException` and no JSON, the queue is empty. That is the expected result when all CDC events are processing successfully.
 
-== Trigger a Schema Change
+== Database shape change (instructor demo)
 
-Add a new column and observe how Debezium handles it:
+Do **not** run the next commands yourself. Thirty participants share one `customers` table; only the instructor should add a column once.
 
-[source,bash,role="execute"]
+The instructor may run:
+
+[source,bash]
 ----
 oc exec -it deployment/cdc-postgresql -n kafka-cdc -- \
   psql -U cdcuser -d cdcdb -c "ALTER TABLE customers ADD COLUMN phone VARCHAR(20);"
-----
 
-Now insert a record with the new column:
-
-[source,bash,role="execute"]
-----
 oc exec -it deployment/cdc-postgresql -n kafka-cdc -- \
   psql -U cdcuser -d cdcdb -c \
   "INSERT INTO customers (first_name, last_name, email, phone) VALUES ('Schema', 'Test', 'schema.test@neuralbank.io', '+54-11-1234-5678');"
 ----
 
-Check the `cdc.public.customers` topic in the Streams Console -- the new event will include the `phone` field. Debezium handles schema evolution automatically.
+Watch the *Kafka Console* on `cdc.public.customers`. The new event can include the `phone` field. Debezium follows the database shape without rewriting the banking app.
+
+This is the **database shape**. The next module checks a separate contract, a **JSON Schema**, so a bad event can be rejected without changing PostgreSQL.
+
+== Checkpoint
+
+* `oc get kafkaconnector` shows `debezium-postgresql-source` Ready
+* A Console event has `op` of `c`, `u`, `d`, or `r`
 
 == Summary
 
@@ -200,4 +216,6 @@ Check the `cdc.public.customers` topic in the Streams Console -- the new event w
 * [x] Debezium runs as a Kafka Connect source connector
 * [x] Events include full `before`/`after` state with operation type
 * [x] Dead Letter Queue handles processing failures
-* [x] Schema changes are handled automatically
+* [x] Database shape changes can flow without changing the banking app
+
+*Bridge:* Next: how do we stop a bad row without stopping the pipeline?

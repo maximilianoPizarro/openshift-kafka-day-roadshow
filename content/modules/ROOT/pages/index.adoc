@@ -2,7 +2,9 @@
 
 == Workshop Overview
 
-Welcome to the **OpenShift Kafka Day Roadshow** -- a hands-on workshop covering Event-Driven Architecture with Apache Kafka, Debezium Change Data Capture (CDC), and real-time observability on Red Hat OpenShift.
+NeuralBank's core banking application writes customers and orders to PostgreSQL. The bank wants an email when a row changes, plus a way to reject a bad event, without editing that application. Today you will watch the database emit a change, follow it through Kafka, see the email, check the event against a schema, and read the pipeline's health.
+
+This is a hands-on workshop on Event-Driven Architecture with Apache Kafka, Debezium Change Data Capture (CDC), and observability on Red Hat OpenShift.
 
 ****
 *Duration:* 2 hours +
@@ -12,23 +14,25 @@ Welcome to the **OpenShift Kafka Day Roadshow** -- a hands-on workshop covering 
 [sidebar]
 .Console Access
 --
-* *Username:* `user1` through `user30`
+* *Username:* `user1` through `user30` (use the number your instructor assigned)
 * *Password:* `{user_password}`
 * *Console:* link:{openshift_cluster_console_url}[OpenShift Console,window=_blank]
 --
 
 == What You Will Learn
 
-* **Event-Driven Architecture** -- Understand how Kafka enables asynchronous, decoupled microservice communication.
-* **Event Generation** -- See a real application producing events from database changes using Debezium.
-* **Event Consumption** -- Build and explore event processing pipelines that react to CDC events.
-* **Change Data Capture (CDC)** -- Use Debezium to capture PostgreSQL WAL changes and stream them to Kafka topics.
-* **Schema and integration** -- Validate those events with Apicurio Registry and a Camel route.
-* **Monitoring & Traceability** -- Explore Grafana dashboards, Kafka metrics, and distributed tracing with OpenTelemetry.
+* **Lab Setup & Overview** -- Reach the cluster, the shared `kafka-cdc` namespace, and your personal project.
+* **Kafka Fundamentals** -- Brokers, topics, and partitions; produce and consume with the CLI and the Kafka Bridge.
+* **Event Producer** -- Watch a banking simulator write to PostgreSQL and see the change appear in Kafka.
+* **Event Consumer** -- Follow the HTTP Sink through the email transformer into Mailpit.
+* **Debezium CDC** -- See how PostgreSQL WAL changes become Kafka records.
+* **Camel and Apicurio Registry** -- Validate rows against a JSON Schema and reject bad events without stopping the pipeline.
+* **Monitoring** -- Read Grafana dashboards, consumer lag, and Debezium metrics.
+* **Wrap-up** -- Recap the architecture and what to harden before production.
 
 == Architecture
 
-The workshop deploys the following CDC pipeline on your OpenShift cluster:
+The workshop deploys the following CDC pipeline on your OpenShift cluster. Each module lights up a slice of this diagram; the landing page shows the full picture so you know where you are going.
 
 image::cdc-architecture.jpg[OpenShift Kafka Day Roadshow CDC Pipeline,width=100%]
 
@@ -37,7 +41,7 @@ image::cdc-architecture.jpg[OpenShift Kafka Day Roadshow CDC Pipeline,width=100%
 |Component |Description
 
 |AMQ Streams (Strimzi)
-|Apache Kafka 3.x cluster with KRaft (no ZooKeeper)
+|Red Hat AMQ Streams, Apache Kafka 4.2, KRaft (no ZooKeeper)
 
 |PostgreSQL 16
 |Source database with WAL logical replication enabled
@@ -54,14 +58,11 @@ image::cdc-architecture.jpg[OpenShift Kafka Day Roadshow CDC Pipeline,width=100%
 |Email Transformer + Mailpit
 |Event consumer sending formatted CDC notifications
 
-|Kafka Streams Console
-|Web UI for browsing topics, messages, and consumer groups
+|Kafka Console
+|Web UI for browsing topics, messages, and consumer groups (not the Kafka Streams API)
 
 |Grafana
 |Dashboards for Kafka broker metrics, consumer lag, and Debezium stats
-
-|OpenTelemetry
-|Distributed tracing collector
 
 |Apicurio Registry
 |JSON Schema registry for customer and order rows, stored in Kafka
@@ -77,29 +78,36 @@ Your workshop runs in a split-panel interface with the following panels:
 * *Left panel* -- Instructions (what you're reading now)
 * *Right panel* -- Tabbed workspace with your cluster tools
 * *Draggable divider* -- Drag the border between panels to resize
+* *View switcher* -- The chevron on the right edge toggles Instructions, Split, and Tabs
 
-[cols="1,2"]
+[cols="1,2,2"]
 |===
-|Tab |Description
-
-|*OCP Console*
-|The OpenShift web console -- cluster management, monitoring, and troubleshooting.
+|Tab |Description |First used in
 
 |*Terminal*
 |A web-based terminal pre-connected to your cluster. Run `oc` commands directly -- no local setup needed.
+|xref:01-setup.adoc[01 Lab Setup]
 
 |*Kafka Console*
-|Kafka Streams Console -- browse topics, messages, and consumer groups.
+|Browse topics, messages, and consumer groups.
+|xref:02-kafka-fundamentals.adoc[02 Kafka Fundamentals]
 
 |*Mailpit*
 |Email inbox viewer for CDC event notifications.
+|xref:04-event-consumer.adoc[04 Event Consumer]
 
 |*Grafana*
 |Dashboards for Kafka broker metrics, consumer lag, and Debezium statistics.
+|xref:07-monitoring.adoc[07 Monitoring]
 
 |*Registry*
 |Apicurio Registry console for the workshop JSON Schemas.
+|xref:06-camel-apicurio.adoc[06 Camel and Apicurio]
 |===
+
+Open the OpenShift web console in a separate browser window when you need it:
+
+link:{openshift_cluster_console_url}[OpenShift Console,window=_blank]
 
 == Modules
 
@@ -107,37 +115,37 @@ Your workshop runs in a split-panel interface with the following panels:
 |===
 |# |Module |Duration
 
-|Setup
-|xref:01-setup.adoc[Lab Setup & Overview]
-|15 min
-
 |01
+|xref:01-setup.adoc[Lab Setup & Overview]
+|10 min
+
+|02
 |xref:02-kafka-fundamentals.adoc[Kafka Fundamentals]
 |20 min
 
-|02
-|xref:03-event-producer.adoc[Event Producer: Real Application]
-|20 min
-
 |03
-|xref:04-event-consumer.adoc[Event Consumer: Processing Pipeline]
+|xref:03-event-producer.adoc[Event Producer: Real Application]
 |15 min
 
 |04
-|xref:05-debezium-cdc.adoc[Debezium CDC]
-|25 min
+|xref:04-event-consumer.adoc[Event Consumer: Processing Pipeline]
+|15 min
 
 |05
-|xref:06-camel-apicurio.adoc[Camel and Apicurio Registry]
+|xref:05-debezium-cdc.adoc[Debezium CDC]
 |20 min
 
 |06
-|xref:07-monitoring.adoc[Monitoring & Traceability]
+|xref:06-camel-apicurio.adoc[Camel and Apicurio Registry]
 |20 min
 
 |07
+|xref:07-monitoring.adoc[Monitoring]
+|15 min
+
+|08
 |xref:08-summary.adoc[Wrap-up]
-|10 min
+|5 min
 |===
 
 Select the first module from the navigation to get started!

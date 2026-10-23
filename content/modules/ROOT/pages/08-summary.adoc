@@ -1,8 +1,12 @@
 = Wrap-up
 
+****
+*Guiding question:* What would you harden before this served real customers?
+****
+
 == What You Accomplished
 
-Congratulations! In this workshop you explored a complete **Event-Driven Architecture** powered by Apache Kafka and Debezium on Red Hat OpenShift.
+Congratulations! You followed NeuralBank's path from a PostgreSQL row change to a customer email, a schema check, and a live health view -- without editing the banking application.
 
 === Key Takeaways
 
@@ -11,27 +15,32 @@ Congratulations! In this workshop you explored a complete **Event-Driven Archite
 |Topic |What You Learned
 
 |Kafka Fundamentals
-|Brokers, topics, partitions, consumer groups, KRaft mode, CLI tools, REST Bridge
+|Brokers, topics, partitions, KRaft mode, CLI tools, REST Bridge
 
 |Event Production
 |CDC Data Simulator generating real banking transactions, PostgreSQL WAL
 
 |Event Consumption
-|HTTP Sink Connector, email transformer pipeline, Mailpit notifications
+|HTTP Sink Connector, email transformer pipeline, Mailpit notifications, consumer groups and lag
 
 |Debezium CDC
-|PostgreSQL source connector, event structure (before/after), snapshots, DLQ, schema evolution
+|PostgreSQL source connector, event structure (before/after), snapshots, DLQ, database shape changes
 
 |Camel and Apicurio
 |JSON Schemas in Apicurio Registry, Camel validation, valid and invalid records
 
 |Monitoring
-|Grafana dashboards, Kafka Exporter, PodMonitors, PromQL queries, load simulation
+|Grafana dashboards, Kafka Exporter, PodMonitors, PromQL queries
 |===
 
 == Architecture Recap
 
 image::architecture-recap.jpg[Architecture Recap,width=100%]
+
+Point to the diagram and answer:
+
+* Which component replaces the banking app? *(None -- the app still writes only to PostgreSQL.)*
+* Which components send mail? *(HTTP Sink plus email transformer into Mailpit.)*
 
 == Production Considerations
 

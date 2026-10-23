@@ -1,33 +1,32 @@
 # OpenShift Kafka Day Roadshow
 
-Hands-on workshop covering **Event-Driven Architecture** with Apache Kafka, Debezium Change Data Capture (CDC), and real-time observability on Red Hat OpenShift.
+Hands-on workshop: NeuralBank needs customer emails and schema checks for PostgreSQL changes, without editing the banking app. Event-Driven Architecture with Apache Kafka, Debezium CDC, and observability on Red Hat OpenShift.
 
-Deployed as a **Validated Pattern** (hub-only, single cluster).
+Deployed as a **Validated Pattern** (hub-only, single cluster). Duration: **2 hours**.
 
 ## Workshop Modules
 
 | Module | Title | Duration |
 |--------|-------|----------|
-| Setup | Lab Setup & Overview | 15 min |
-| 01 | Kafka Fundamentals | 20 min |
-| 02 | Event Producer: Real Application | 20 min |
-| 03 | Event Consumer: Processing Pipeline | 15 min |
-| 04 | Debezium CDC | 25 min |
-| 05 | Camel and Apicurio Registry | 20 min |
-| 06 | Monitoring & Traceability | 20 min |
-| 07 | Wrap-up | 10 min |
+| 01 | Lab Setup & Overview | 10 min |
+| 02 | Kafka Fundamentals | 20 min |
+| 03 | Event Producer: Real Application | 15 min |
+| 04 | Event Consumer: Processing Pipeline | 15 min |
+| 05 | Debezium CDC | 20 min |
+| 06 | Camel and Apicurio Registry | 20 min |
+| 07 | Monitoring | 15 min |
+| 08 | Wrap-up | 5 min |
 
 ## Components
 
-- **AMQ Streams (Strimzi)** -- Kafka 3.x cluster with KRaft
+- **AMQ Streams (Strimzi)** -- Apache Kafka 4.2 with KRaft
 - **PostgreSQL 16** -- Source database with WAL logical replication
 - **Debezium** -- CDC connector for PostgreSQL
 - **Kafka Connect** -- Debezium source + HTTP Sink connectors
 - **CDC Data Simulator** -- Python transaction generator
 - **Mailpit** -- Email notification viewer
-- **Kafka Streams Console** -- Web UI for topics/messages
+- **Kafka Console** -- Web UI for topics/messages
 - **Grafana** -- Kafka metrics dashboards
-- **OpenTelemetry** -- Distributed tracing collector
 - **Apicurio Registry** -- JSON Schema registry stored in Kafka
 - **Camel** -- Validates CDC rows and lab messages against Apicurio
 
@@ -53,7 +52,7 @@ oc apply -f examples/pattern-cr/hub-only.yaml
 | **Showroom (Lab Guide)** | `https://showroom-showroom.apps.<domain>` |
 | **Registration Admin** | `https://workshop-registration.apps.<domain>/admin` (token: `workshop-admin-2024`) |
 
-Participants enter their email on the registration page, get assigned `userN`, and are redirected to the lab guide with Terminal, OCP Console, and Kafka Console tabs.
+Participants enter their email on the registration page, get assigned `userN`, and are redirected to the lab guide with Terminal, Kafka Console, Mailpit, Grafana, and Registry tabs.
 
 ### Users
 

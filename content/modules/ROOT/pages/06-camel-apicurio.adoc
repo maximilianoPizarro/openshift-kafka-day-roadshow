@@ -1,5 +1,15 @@
 = Camel and Apicurio Registry
 
+****
+*Guiding question:* How do we stop a bad row without stopping the pipeline?
+****
+
+== Where we are
+
+Debezium can follow a new database column. NeuralBank still needs a separate contract: reject a customer event that is missing an email without stopping Camel or Debezium.
+
+You are here: Apicurio Registry and Camel, with a side path to `camel.schema-errors`.
+
 == Objectives
 
 * See where a schema registry fits in the CDC pipeline
@@ -24,7 +34,7 @@ The registry stores its data in the Kafka topic `kafkasql-journal` on `cdc-clust
 oc get apicurioregistry3 cdc-registry -n kafka-cdc
 ----
 
-.Expected ApicurioRegistry3 (offline reference)
+.Expected ApicurioRegistry3 (reference, not a step)
 [source,yaml]
 ----
 apiVersion: registry.apicur.io/v1
@@ -61,7 +71,7 @@ Check the journal topic:
 oc get kafkatopic kafkasql-journal -n kafka-cdc -o yaml
 ----
 
-.Expected journal topic (offline reference)
+.Expected journal topic (reference, not a step)
 [source,yaml]
 ----
 apiVersion: kafka.strimzi.io/v1beta2
@@ -111,7 +121,7 @@ For a Debezium event, the row is `payload.after` (the same envelope you saw in t
 oc get configmap cdc-camel-routes -n kafka-cdc -o yaml
 ----
 
-.Expected schema-check route (offline reference)
+.Expected schema-check route (reference, not a step)
 [source,yaml]
 ----
 - route:
@@ -151,7 +161,7 @@ You should see `camel.schema-check`, `camel.validated`, `camel.schema-errors`, `
 
 == Publish a valid customer
 
-All workshop users share these topics. The Camel Deployment is the only validator. When you read the output, look for your own email.
+All workshop users share these topics. The Camel Deployment is the only validator. Replace `user1` in the email with your assigned number:
 
 [source,bash,role="execute",subs="+attributes"]
 ----
@@ -160,11 +170,13 @@ curl -sk -X POST {bridge_url}/topics/camel.schema-check \
   -d '{"records":[{"value":{"first_name":"Workshop","last_name":"User","email":"workshop.user1@neuralbank.io"}}]}'
 ----
 
-Read the validated record:
+Your publish succeeded if the curl returned an `offsets` array.
+
+Read one validated record. The consumer prints the oldest record, which may belong to another participant. Use it to confirm the shape (`"schema":"customers-value"` and `"source":"bridge"`), not to prove the message is yours:
 
 [source,bash,role="execute",subs="+attributes"]
 ----
-oc run camel-validated -ti --rm \
+oc run camel-validated -i --rm \
   --image={kafka_cli_image} \
   --restart=Never \
   -n $(oc whoami)-workshop \
@@ -175,7 +187,7 @@ oc run camel-validated -ti --rm \
     --max-messages 1
 ----
 
-The body contains `"schema":"customers-value"` and `"source":"bridge"`.
+To find your own email, search the *Kafka Console* on `camel.validated` for the address you typed.
 
 == Publish an invalid customer
 
@@ -190,7 +202,7 @@ curl -sk -X POST {bridge_url}/topics/camel.schema-check \
 
 [source,bash,role="execute",subs="+attributes"]
 ----
-oc run camel-errors -ti --rm \
+oc run camel-errors -i --rm \
   --image={kafka_cli_image} \
   --restart=Never \
   -n $(oc whoami)-workshop \
@@ -201,13 +213,15 @@ oc run camel-errors -ti --rm \
     --max-messages 1
 ----
 
+You should see a record on `camel.schema-errors`. Camel keeps running after the rejection.
+
 == A row from Debezium
 
-Camel also reads the CDC topics from the beginning. Consume one validated customer. `source` is `debezium`.
+Camel also reads the CDC topics from the beginning. Consume one validated customer. `source` is `debezium`. The oldest record may be from earlier in the day or from another participant:
 
 [source,bash,role="execute",subs="+attributes"]
 ----
-oc run camel-customers -ti --rm \
+oc run camel-customers -i --rm \
   --image={kafka_cli_image} \
   --restart=Never \
   -n $(oc whoami)-workshop \
@@ -218,6 +232,11 @@ oc run camel-customers -ti --rm \
     --max-messages 1
 ----
 
+== Checkpoint
+
+* The valid curl returned offsets
+* An invalid publish is followed by a record on `camel.schema-errors`
+
 == Summary
 
 You now understand:
@@ -226,3 +245,5 @@ You now understand:
 * [x] The customer schema requires an email and allows extra columns
 * [x] Camel validates CDC rows and messages you publish through the bridge
 * [x] Invalid records go to `camel.schema-errors` without stopping the consumer
+
+*Bridge:* Next: how do we see that this pipeline is keeping up?

@@ -1,15 +1,24 @@
-= Monitoring & Traceability
+= Monitoring
+
+****
+*Guiding question:* How do we see that this pipeline is keeping up?
+****
+
+== Where we are
+
+The pipeline is producing emails and validating schemas. NeuralBank still needs a view of throughput and lag without guessing from log files.
+
+You are here: Grafana watching the pipeline that is already lit.
 
 == Objectives
 
 * Explore Kafka metrics in Grafana
 * Understand key performance indicators for Kafka and Debezium
-* Use the OpenShift Console monitoring
-* Explore distributed tracing concepts
+* See how PodMonitors feed Prometheus
 
 == Grafana Dashboards
 
-Open the **Grafana** dashboard (use the workshop links, or open this URL):
+Open the **Grafana** dashboard (use the *Grafana* tab, or open this URL):
 
 link:{grafana_url}[{grafana_url},window=_blank]
 
@@ -24,10 +33,10 @@ Navigate to **Dashboards > Kafka CDC Overview**.
 |Panel |What It Shows
 
 |Messages In Per Second
-|Rate of messages being produced to Kafka brokers
+|Rate of messages being produced to the CDC topics
 
 |Bytes In Per Second
-|Data throughput across all topics
+|Data throughput on the CDC topics
 
 |Consumer Group Lag
 |How far behind consumers are from the latest messages
@@ -36,19 +45,15 @@ Navigate to **Dashboards > Kafka CDC Overview**.
 |Rate of CDC events captured by Debezium
 
 |Kafka Connect Tasks Running
-|Number of active connector tasks
+|Number of active connector tasks (expect 2)
 
 |Active Partitions
-|Total partition count across all topics
+|Total partition count across topics
 |===
 
-== OpenShift Console Monitoring
+== PromQL samples
 
-The OpenShift Console also provides built-in monitoring. Navigate to:
-
-**Observe > Metrics**
-
-Try these PromQL queries:
+Use Grafana's **Explore** view (or a panel edit) with the Prometheus datasource. These queries match the dashboard panels:
 
 === Kafka Broker Messages Rate
 
@@ -80,7 +85,7 @@ count(kafka_connect_task_batch_size_max)
 
 == Kafka Exporter Metrics
 
-The Kafka Exporter pod provides additional metrics:
+The Kafka Exporter pod provides consumer lag and related metrics:
 
 [source,bash,role="execute"]
 ----
@@ -95,7 +100,7 @@ oc exec -it $(oc get pod -n kafka-cdc -l strimzi.io/name=cdc-cluster-kafka-expor
   -n kafka-cdc -- curl -s localhost:9404/metrics | grep kafka_consumergroup_lag | head -10
 ----
 
-== ServiceMonitors and PodMonitors
+== PodMonitors
 
 The workshop deploys PodMonitors to scrape Kafka metrics:
 
@@ -104,7 +109,7 @@ The workshop deploys PodMonitors to scrape Kafka metrics:
 oc get podmonitor -n kafka-cdc
 ----
 
-.Expected PodMonitor (offline reference)
+.Expected PodMonitor (reference, not a step)
 [source,yaml]
 ----
 apiVersion: monitoring.coreos.com/v1
@@ -126,33 +131,29 @@ These automatically configure Prometheus to scrape:
 
 * Kafka brokers (JMX metrics via Prometheus exporter)
 * Kafka Connect workers (connector and task metrics)
+* Kafka Exporter (consumer lag)
 * Kafka Bridge (HTTP request metrics)
 
-== Simulate Load and Observe
+== Simulate Load (instructor demo)
 
-Generate extra load to see metrics change. Scale up the simulator temporarily:
+Do **not** change the shared simulator interval yourself. Thirty participants would fight over one Deployment.
 
-[source,bash,role="execute"]
-----
-oc set env deployment/cdc-data-simulator INTERVAL_SECONDS=5 -n kafka-cdc
-----
-
-Watch the Grafana dashboard -- you should see:
+Watch the Grafana dashboard while the instructor temporarily sets `INTERVAL_SECONDS=5` and then restores `60`. You should see:
 
 * Messages per second increase
 * Consumer lag potentially growing
 * Debezium events per second increasing
 
-After observing, restore the normal interval:
+== Checkpoint
 
-[source,bash,role="execute"]
-----
-oc set env deployment/cdc-data-simulator INTERVAL_SECONDS=60 -n kafka-cdc
-----
+* Grafana panel **Kafka Connect Tasks Running** shows `2`
+* **Messages In Per Second** shows a non-zero line for the CDC topics
 
 == Summary
 
 * [x] Grafana provides visual dashboards for Kafka, Connect, and Debezium metrics
-* [x] OpenShift Console offers built-in PromQL querying
+* [x] PromQL queries match the dashboard panels
 * [x] PodMonitors automatically scrape Kafka component metrics
-* [x] You can simulate load changes and observe the impact in real time
+* [x] Load changes are an instructor-led demo on a shared simulator
+
+*Bridge:* Next: what would you harden before this served real NeuralBank customers?

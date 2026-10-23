@@ -1,30 +1,36 @@
 = Lab Setup & Overview
 
+****
+*Guiding question:* Can you reach the cluster and your own project?
+****
+
 == Workshop Architecture
 
 image::workshop-architecture.jpg[OpenShift Kafka Day Roadshow Architecture,width=100%]
 
+You are here: OpenShift, the Terminal, and your personal project. The rest of the pipeline stays dim until later modules.
+
 == Objectives
 
-* Log in to the OpenShift cluster
+* Log in to the OpenShift cluster with your assigned user
 * Verify CLI access
-* Explore the OCP Console
-* Understand the lab architecture
+* Confirm the shared `kafka-cdc` namespace is visible
+* Confirm admin access to your personal namespace
 
 == Step 1: Log in to the OpenShift Console
 
-Open the OpenShift Console (use the *OCP Console* tab in your workshop interface, or open this URL):
+Open the OpenShift Console in a new browser window:
 
 link:https://console-openshift-console.{cluster_domain}[OpenShift Console,window=_blank]
 
 Log in with your assigned credentials:
 
-* **Username:** `userN` (where N is your assigned number)
+* **Username:** `userN` (replace `N` with the number your instructor assigned)
 * **Password:** `{user_password}`
 
 == Step 2: CLI Login
 
-Use the *Terminal* tab in your workshop interface and log in with the `oc` CLI:
+Use the *Terminal* tab in your workshop interface and log in with the `oc` CLI. Replace `user1` with your assigned user:
 
 [source,bash,role="execute",subs="+attributes"]
 ----
@@ -37,6 +43,8 @@ Verify your identity:
 ----
 oc whoami
 ----
+
+You should see `userN`, matching the account you used above.
 
 == Step 3: Explore the Workshop Namespace
 
@@ -55,9 +63,9 @@ You should see pods running for:
 * `cdc-data-simulator` -- Transaction simulator
 * `cdc-email-transformer` -- Event consumer
 * `mailpit` -- Email inbox viewer
-* `kafka-console` -- Kafka Streams Console UI
+* `kafka-console` -- Kafka Console UI
 
-.Expected Kafka cluster (offline reference)
+.Expected Kafka cluster (reference, not a step)
 [source,yaml]
 ----
 apiVersion: kafka.strimzi.io/v1beta2
@@ -75,12 +83,6 @@ spec:
         port: 9092
         type: internal
         tls: false
-      - name: tls
-        port: 9093
-        type: internal
-        tls: true
-        authentication:
-          type: scram-sha-512
 ----
 
 == Step 4: Access the Key UIs
@@ -91,7 +93,7 @@ Use the workshop tabs or open these URLs:
 |===
 |Tool |URL
 
-|Kafka Streams Console
+|Kafka Console
 |link:{kafka_console_url}[{kafka_console_url},window=_blank]
 
 |Mailpit (Email Viewer)
@@ -106,7 +108,7 @@ Use the workshop tabs or open these URLs:
 
 == Step 5: Verify Your Personal Namespace
 
-You have admin access to your own namespace:
+You have admin access to your own namespace. Client pods for produce and consume run here so they do not collide with other participants:
 
 [source,bash,role="execute"]
 ----
@@ -114,14 +116,13 @@ oc project $(oc whoami)-workshop
 oc get all
 ----
 
-You will use this namespace later to run your own Kafka client pods.
-
 == Summary
 
 You now have:
 
-* [x] CLI access to the cluster
-* [x] Console access
+* [x] CLI access to the cluster (`oc whoami` prints your user)
 * [x] View permissions on the `kafka-cdc` namespace
 * [x] Admin access to your personal `userN-workshop` namespace
-* [x] URLs for all the workshop tools
+* [x] URLs for the workshop tools
+
+*Bridge:* Next you will answer: what is a topic, and can you put a message on one?

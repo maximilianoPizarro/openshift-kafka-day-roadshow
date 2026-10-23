@@ -1,16 +1,30 @@
 = Event Producer: Real Application
 
+****
+*Guiding question:* Who is writing the banking rows, and did your insert leave the database?
+****
+
+== Where we are
+
+Kafka can hold a message. NeuralBank's application still only writes to PostgreSQL.
+
+== Why it matters
+
+If we must change the banking app to call Kafka, this project fails. The bank needs the email and the pipeline without editing that application.
+
+== Concept
+
+A separate Python simulator inserts customers, creates orders, and updates order status (about 40%, 40%, and 20%). PostgreSQL records those changes in its write-ahead log (WAL). Something between PostgreSQL and Kafka is copying the row. You will open that component in the Debezium CDC module. You are not looking at Debezium yet.
+
+You are here: the simulator and PostgreSQL. The arrow to Kafka stays dashed until the Debezium module.
+
 == Objectives
 
-* Understand how real applications produce events
 * Explore the CDC Data Simulator
-* See PostgreSQL changes flow into Kafka topics in real time
+* Confirm PostgreSQL is accepting banking rows
+* Insert a customer yourself and see a related message in Kafka
 
 == The CDC Data Simulator
-
-The workshop includes a **CDC Data Simulator** -- a Python application that continuously generates realistic banking transactions in PostgreSQL.
-
-=== How It Works
 
 image::event-producer-flow.jpg[Event Producer CDC Data Simulator flow,width=100%]
 
@@ -22,14 +36,14 @@ The simulator randomly performs:
 
 === View Simulator Logs
 
-Watch the simulator in action:
+Read the recent simulator output (do not use `-f`; the simulator only writes about once per minute):
 
 [source,bash,role="execute"]
 ----
-oc logs -f deployment/cdc-data-simulator -n kafka-cdc
+oc logs deployment/cdc-data-simulator -n kafka-cdc --tail=20
 ----
 
-.Expected simulator Deployment (offline reference)
+.Expected simulator Deployment (reference, not a step)
 [source,yaml]
 ----
 apiVersion: apps/v1
@@ -79,7 +93,7 @@ oc exec -it deployment/cdc-postgresql -n kafka-cdc -- \
 
 === Check WAL Configuration
 
-Verify that PostgreSQL has logical WAL replication enabled (required for Debezium):
+Verify that PostgreSQL has logical WAL replication enabled. This setting lets a CDC tool read the change stream later:
 
 [source,bash,role="execute"]
 ----
@@ -97,7 +111,7 @@ oc exec -it deployment/cdc-postgresql -n kafka-cdc -- \
 
 == Generate Your Own Events
 
-Insert a customer manually and watch it appear in Kafka:
+Insert a customer manually. Replace `User1` / `user1` with your assigned number if you want the email to be unique:
 
 [source,bash,role="execute"]
 ----
@@ -106,10 +120,18 @@ oc exec -it deployment/cdc-postgresql -n kafka-cdc -- \
   "INSERT INTO customers (first_name, last_name, email) VALUES ('Workshop', 'User1', 'workshop.user1@neuralbank.io');"
 ----
 
-Now check the Kafka topic in the Streams Console -- you should see a new CDC event with `"op": "c"` (create).
+Open the *Kafka Console* tab and open `cdc.public.customers`. You should see a new message. The `op` value is a label; `c` means the row was inserted. The Debezium CDC module defines the full event shape.
+
+== Checkpoint
+
+* The simulator log shows a customer or an order
+* `wal_level` is `logical`
+* The Kafka Console shows a new record on `cdc.public.customers` after your INSERT
 
 == Summary
 
-* [x] The simulator continuously generates realistic data
-* [x] PostgreSQL WAL captures every change at the database level
-* [x] You can manually INSERT data and see it flow through the pipeline
+* [x] The simulator continuously generates realistic banking data
+* [x] PostgreSQL WAL records every change at the database level
+* [x] You can manually INSERT data and see a related message in Kafka
+
+*Bridge:* The email does not exist yet. Next you will see who reads `cdc.public.orders` and what the customer receives.
