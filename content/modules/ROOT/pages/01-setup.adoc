@@ -110,11 +110,11 @@ You have admin access to your own namespace:
 
 [source,bash,role="execute"]
 ----
-oc project user1-workshop
+oc project $(oc whoami)-workshop
 oc get all
 ----
 
-You will use this namespace later to deploy your own consumer applications.
+You will use this namespace later to run your own Kafka client pods.
 
 == Summary
 

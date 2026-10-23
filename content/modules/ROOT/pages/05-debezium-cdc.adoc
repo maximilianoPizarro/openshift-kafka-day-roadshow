@@ -162,9 +162,9 @@ Failed events are routed to the `dlq.cdc-errors` topic:
 oc run dlq-check -ti --rm \
   --image={kafka_cli_image} \
   --restart=Never \
-  -n kafka-cdc \
+  -n $(oc whoami)-workshop \
   -- bin/kafka-console-consumer.sh \
-    --bootstrap-server cdc-cluster-kafka-bootstrap:9092 \
+    --bootstrap-server cdc-cluster-kafka-bootstrap.kafka-cdc.svc:9092 \
     --topic dlq.cdc-errors \
     --from-beginning \
     --max-messages 1 \

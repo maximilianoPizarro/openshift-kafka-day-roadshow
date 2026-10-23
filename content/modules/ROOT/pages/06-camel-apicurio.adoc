@@ -167,9 +167,9 @@ Read the validated record:
 oc run camel-validated -ti --rm \
   --image={kafka_cli_image} \
   --restart=Never \
-  -n kafka-cdc \
+  -n $(oc whoami)-workshop \
   -- bin/kafka-console-consumer.sh \
-    --bootstrap-server cdc-cluster-kafka-bootstrap:9092 \
+    --bootstrap-server cdc-cluster-kafka-bootstrap.kafka-cdc.svc:9092 \
     --topic camel.validated \
     --from-beginning \
     --max-messages 5 \
@@ -194,9 +194,9 @@ curl -sk -X POST {bridge_url}/topics/camel.schema-check \
 oc run camel-errors -ti --rm \
   --image={kafka_cli_image} \
   --restart=Never \
-  -n kafka-cdc \
+  -n $(oc whoami)-workshop \
   -- bin/kafka-console-consumer.sh \
-    --bootstrap-server cdc-cluster-kafka-bootstrap:9092 \
+    --bootstrap-server cdc-cluster-kafka-bootstrap.kafka-cdc.svc:9092 \
     --topic camel.schema-errors \
     --from-beginning \
     --max-messages 5 \
@@ -212,9 +212,9 @@ Camel also reads the CDC topics from the beginning. Consume one validated custom
 oc run camel-customers -ti --rm \
   --image={kafka_cli_image} \
   --restart=Never \
-  -n kafka-cdc \
+  -n $(oc whoami)-workshop \
   -- bin/kafka-console-consumer.sh \
-    --bootstrap-server cdc-cluster-kafka-bootstrap:9092 \
+    --bootstrap-server cdc-cluster-kafka-bootstrap.kafka-cdc.svc:9092 \
     --topic camel.public.customers \
     --from-beginning \
     --max-messages 1 \

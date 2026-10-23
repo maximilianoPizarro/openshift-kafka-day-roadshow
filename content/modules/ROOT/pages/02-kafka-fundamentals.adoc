@@ -88,16 +88,18 @@ link:{kafka_console_url}[{kafka_console_url},window=_blank]
 
 == CLI: Produce Messages
 
-You can produce messages directly from the command line. Start a console producer:
+You can produce messages directly from the command line. The client pod runs in your own namespace, `$(oc whoami)-workshop`, so it does not collide with the other participants. Kafka is reached with the cluster DNS name.
+
+Start a console producer:
 
 [source,bash,role="execute",subs="+attributes"]
 ----
 oc run kafka-producer -ti --rm \
   --image={kafka_cli_image} \
   --restart=Never \
-  -n kafka-cdc \
+  -n $(oc whoami)-workshop \
   -- bin/kafka-console-producer.sh \
-    --bootstrap-server cdc-cluster-kafka-bootstrap:9092 \
+    --bootstrap-server cdc-cluster-kafka-bootstrap.kafka-cdc.svc:9092 \
     --topic test-workshop
 ----
 
@@ -121,9 +123,9 @@ In a new terminal, start a consumer to read those messages:
 oc run kafka-consumer -ti --rm \
   --image={kafka_cli_image} \
   --restart=Never \
-  -n kafka-cdc \
+  -n $(oc whoami)-workshop \
   -- bin/kafka-console-consumer.sh \
-    --bootstrap-server cdc-cluster-kafka-bootstrap:9092 \
+    --bootstrap-server cdc-cluster-kafka-bootstrap.kafka-cdc.svc:9092 \
     --topic test-workshop \
     --from-beginning
 ----

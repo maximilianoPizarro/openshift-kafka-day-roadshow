@@ -73,9 +73,9 @@ View the consumer groups for the CDC pipeline:
 oc run kafka-groups -ti --rm \
   --image={kafka_cli_image} \
   --restart=Never \
-  -n kafka-cdc \
+  -n $(oc whoami)-workshop \
   -- bin/kafka-consumer-groups.sh \
-    --bootstrap-server cdc-cluster-kafka-bootstrap:9092 \
+    --bootstrap-server cdc-cluster-kafka-bootstrap.kafka-cdc.svc:9092 \
     --list
 ----
 
@@ -86,9 +86,9 @@ Check lag for the Connect consumer group:
 oc run kafka-groups -ti --rm \
   --image={kafka_cli_image} \
   --restart=Never \
-  -n kafka-cdc \
+  -n $(oc whoami)-workshop \
   -- bin/kafka-consumer-groups.sh \
-    --bootstrap-server cdc-cluster-kafka-bootstrap:9092 \
+    --bootstrap-server cdc-cluster-kafka-bootstrap.kafka-cdc.svc:9092 \
     --describe --group connect-cdc-connect-cluster
 ----
 
@@ -98,7 +98,7 @@ Create a simple consumer in your personal namespace:
 
 [source,bash,role="execute"]
 ----
-oc project user1-workshop
+oc project $(oc whoami)-workshop
 ----
 
 [source,bash,role="execute",subs="+attributes"]
