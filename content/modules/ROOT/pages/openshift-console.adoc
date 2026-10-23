@@ -1,0 +1,9 @@
+= OpenShift Console
+
+The OpenShift Console cannot load inside this workshop panel. Browsers block it because the console sends `X-Frame-Options: DENY`.
+
+Open it in a new browser tab instead:
+
+link:{openshift_cluster_console_url}[Open OpenShift Console,window=_blank,role=button]
+
+Use the same `user1`–`user30` credentials as the rest of the lab (`{user_password}`). Keep this workshop page open so the Terminal, Kafka Console, Mailpit, Grafana, and Registry tabs stay available.

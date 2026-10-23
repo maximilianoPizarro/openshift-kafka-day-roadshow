@@ -33,8 +33,7 @@ antora:
 
 tabs:
   - name: OCP Console
-    url: 'https://console-openshift-console.${DOMAIN}'
-    external: true
+    url: 'https://showroom-showroom.${DOMAIN}/kafka-day-roadshow/main/openshift-console.html'
 
   - name: Terminal
     path: /terminal

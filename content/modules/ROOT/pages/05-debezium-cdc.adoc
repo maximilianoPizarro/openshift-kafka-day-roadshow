@@ -157,10 +157,10 @@ oc exec -it deployment/cdc-postgresql -n kafka-cdc -- \
 
 Failed events are routed to the `dlq.cdc-errors` topic:
 
-[source,bash,role="execute"]
+[source,bash,role="execute",subs="+attributes"]
 ----
 oc run dlq-check -ti --rm \
-  --image=registry.redhat.io/amq-streams/kafka-38-rhel9:latest \
+  --image={kafka_cli_image} \
   --restart=Never \
   -n kafka-cdc \
   -- bin/kafka-console-consumer.sh \

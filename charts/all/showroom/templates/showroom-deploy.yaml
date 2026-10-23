@@ -126,6 +126,7 @@ data:
     user_password: "Welcome123!"
     openshift_cluster_console_url: "https://console-openshift-console.{{ $domain }}"
     kafka_bootstrap: "cdc-cluster-kafka-bootstrap.kafka-cdc.svc:9092"
+    kafka_cli_image: "registry.redhat.io/amq-streams/kafka-42-rhel9@sha256:98366a2decaf5d3182d09d5b949b68fcb6500056814fbfa28ab67525ddb2671a"
     kafka_console_url: "https://kafka-console-kafka-cdc.{{ $domain }}"
     mailpit_url: "https://mailpit-kafka-cdc.{{ $domain }}"
     grafana_url: "https://kafka-grafana-route-kafka-cdc.{{ $domain }}"

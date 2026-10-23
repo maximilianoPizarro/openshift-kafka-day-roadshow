@@ -11,6 +11,7 @@ asciidoc:
     page-pagination: true
     user_password: "Welcome123!"
     kafka_bootstrap: "cdc-cluster-kafka-bootstrap.kafka-cdc.svc:9092"
+    kafka_cli_image: "registry.redhat.io/amq-streams/kafka-42-rhel9@sha256:98366a2decaf5d3182d09d5b949b68fcb6500056814fbfa28ab67525ddb2671a"
     # Placeholders overridden at build time by showroom-content from user_data.yml
     cluster_domain: "apps.cluster.example.com"
     cluster_base: "cluster.example.com"
