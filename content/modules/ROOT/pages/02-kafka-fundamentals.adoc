@@ -97,7 +97,7 @@ oc run kafka-producer -ti --rm \
   --restart=Never \
   -n kafka-cdc \
   -- bin/kafka-console-producer.sh \
-    --broker-list cdc-cluster-kafka-bootstrap:9092 \
+    --bootstrap-server cdc-cluster-kafka-bootstrap:9092 \
     --topic test-workshop
 ----
 
