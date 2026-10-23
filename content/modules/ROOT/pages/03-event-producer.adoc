@@ -12,12 +12,7 @@ The workshop includes a **CDC Data Simulator** -- a Python application that cont
 
 === How It Works
 
-[source,text]
-----
-CDC Data Simulator --> PostgreSQL --> Debezium --> Kafka
-     (INSERTs/         (WAL logical     (Connector)   (Topics)
-      UPDATEs)          replication)
-----
+image::event-producer-flow.jpg[Event Producer CDC Data Simulator flow,width=100%]
 
 The simulator randomly performs:
 

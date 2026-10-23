@@ -31,28 +31,7 @@ Congratulations! In this workshop you explored a complete **Event-Driven Archite
 
 == Architecture Recap
 
-[source,text]
-----
-┌──────────────────┐     ┌──────────────┐     ┌──────────────┐     ┌─────────────┐
-│  CDC Simulator   │────>│  PostgreSQL  │────>│   Debezium   │────>│    Kafka     │
-│  (Python app)    │     │  (WAL=logical)│     │  (pgoutput)  │     │  (3 brokers) │
-└──────────────────┘     └──────────────┘     └──────────────┘     └──────┬──────┘
-                                                                          │
-                         ┌──────────────┐     ┌──────────────┐            │
-                         │   Mailpit    │<────│   Email      │<───────────┘
-                         │  (inbox UI)  │     │  Transformer │     (HTTP Sink)
-                         └──────────────┘     └──────────────┘
-
-                         ┌──────────────┐     ┌──────────────┐
-                         │   Grafana    │<────│  Prometheus  │  (PodMonitors)
-                         │  (dashboards)│     │  (scraping)  │
-                         └──────────────┘     └──────────────┘
-
-                         ┌──────────────┐     ┌──────────────┐
-                         │   Apicurio   │<───>│    Camel     │<── cdc.public.*
-                         │   Registry   │     │    router    │──> camel.public.*
-                         └──────────────┘     └──────────────┘
-----
+image::architecture-recap.jpg[Architecture Recap,width=100%]
 
 == Production Considerations
 

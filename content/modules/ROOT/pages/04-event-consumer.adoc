@@ -11,11 +11,7 @@
 
 The workshop demonstrates a complete event consumption pipeline:
 
-[source,text]
-----
-Kafka Topics ──> HTTP Sink Connector ──> Email Transformer ──> Mailpit
-(cdc.public.*)        (Kafka Connect)      (Python HTTP server)   (Email inbox)
-----
+image::event-consumer-flow.jpg[Event Consumer Email Notification Pipeline,width=100%]
 
 === How the HTTP Sink Works
 
