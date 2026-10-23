@@ -172,8 +172,7 @@ oc run camel-validated -ti --rm \
     --bootstrap-server cdc-cluster-kafka-bootstrap.kafka-cdc.svc:9092 \
     --topic camel.validated \
     --from-beginning \
-    --max-messages 5 \
-    --timeout-ms 20000
+    --max-messages 1
 ----
 
 The body contains `"schema":"customers-value"` and `"source":"bridge"`.
@@ -199,8 +198,7 @@ oc run camel-errors -ti --rm \
     --bootstrap-server cdc-cluster-kafka-bootstrap.kafka-cdc.svc:9092 \
     --topic camel.schema-errors \
     --from-beginning \
-    --max-messages 5 \
-    --timeout-ms 20000
+    --max-messages 1
 ----
 
 == A row from Debezium
@@ -217,8 +215,7 @@ oc run camel-customers -ti --rm \
     --bootstrap-server cdc-cluster-kafka-bootstrap.kafka-cdc.svc:9092 \
     --topic camel.public.customers \
     --from-beginning \
-    --max-messages 1 \
-    --timeout-ms 20000
+    --max-messages 1
 ----
 
 == Summary

@@ -48,7 +48,7 @@ The transformer converts CDC events into formatted HTML emails:
 
 [source,bash,role="execute"]
 ----
-oc logs -f deployment/cdc-email-transformer -n kafka-cdc
+oc logs deployment/cdc-email-transformer -n kafka-cdc --tail=20
 ----
 
 == View CDC Notifications in Mailpit
@@ -70,7 +70,7 @@ View the consumer groups for the CDC pipeline:
 
 [source,bash,role="execute",subs="+attributes"]
 ----
-oc run kafka-groups -ti --rm \
+oc run kafka-groups -i --rm \
   --image={kafka_cli_image} \
   --restart=Never \
   -n $(oc whoami)-workshop \
@@ -79,17 +79,17 @@ oc run kafka-groups -ti --rm \
     --list
 ----
 
-Check lag for the Connect consumer group:
+Check lag for the Mailpit sink. Its consumer group is `connect-mailpit-http-sink`:
 
 [source,bash,role="execute",subs="+attributes"]
 ----
-oc run kafka-groups -ti --rm \
+oc run kafka-groups -i --rm \
   --image={kafka_cli_image} \
   --restart=Never \
   -n $(oc whoami)-workshop \
   -- bin/kafka-consumer-groups.sh \
     --bootstrap-server cdc-cluster-kafka-bootstrap.kafka-cdc.svc:9092 \
-    --describe --group connect-cdc-connect-cluster
+    --describe --group connect-mailpit-http-sink
 ----
 
 == Deploy Your Own Consumer

@@ -104,14 +104,14 @@ data:
     - pattern: kafka.server<type=(.+), name=(.+)><>Value
       name: kafka_server_$1_$2
       type: GAUGE
-    - pattern: kafka.server<type=(.+), name=(.+)><>Count
-      name: kafka_server_$1_$2_total
-      type: COUNTER
     - pattern: kafka.server<type=(.+), name=(.+), topic=(.+)><>Count
       name: kafka_server_$1_$2_total
       type: COUNTER
       labels:
         topic: "$3"
+    - pattern: kafka.server<type=(.+), name=(.+)><>Count
+      name: kafka_server_$1_$2_total
+      type: COUNTER
     - pattern: kafka.controller<type=(.+), name=(.+)><>(Count|Value)
       name: kafka_controller_$1_$2
       type: GAUGE

@@ -12,6 +12,7 @@ spec:
     matchLabels:
       strimzi.io/cluster: cdc-cluster
       strimzi.io/kind: Kafka
+      strimzi.io/component-type: kafka
   podMetricsEndpoints:
     - port: tcp-prometheus
       path: /metrics
@@ -30,6 +31,24 @@ spec:
     matchLabels:
       strimzi.io/cluster: cdc-connect
       strimzi.io/kind: KafkaConnect
+  podMetricsEndpoints:
+    - port: tcp-prometheus
+      path: /metrics
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: kafka-exporter
+  namespace: kafka-cdc
+  labels:
+    strimzi.io/cluster: cdc-cluster
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
+spec:
+  selector:
+    matchLabels:
+      strimzi.io/cluster: cdc-cluster
+      strimzi.io/component-type: kafka-exporter
   podMetricsEndpoints:
     - port: tcp-prometheus
       path: /metrics

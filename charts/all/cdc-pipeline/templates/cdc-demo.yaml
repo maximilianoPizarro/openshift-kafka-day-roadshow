@@ -233,26 +233,25 @@ data:
     lowercaseOutputName: true
     lowercaseOutputLabelNames: true
     rules:
-    - pattern: kafka.connect<type=connect-worker-metrics, connector=(.+)><>([a-z-]+)
+    - pattern: kafka.connect<type=connect-worker-metrics, connector=([^>]+)><>([^:]+)
       name: kafka_connect_worker_$2
       type: GAUGE
       labels:
         connector: "$1"
-    - pattern: kafka.connect<type=connector-metrics, client-id=(.+)><>([a-z-]+)
-      name: kafka_connect_connector_$2
+    - pattern: kafka.connect<type=connect-worker-metrics><>([^:]+)
+      name: kafka_connect_worker_$1
       type: GAUGE
-      labels:
-        client_id: "$1"
-    - pattern: kafka.connect<type=connector-task-metrics, connector=(.+), task=(.+)><>([a-z-]+)
+    - pattern: kafka.connect<type=connector-task-metrics, connector=([^,]+), task=([^>]+)><>([^:]+)
       name: kafka_connect_task_$3
       type: GAUGE
       labels:
         connector: "$1"
         task: "$2"
-    - pattern: debezium.([^.]+)<type=connector-metrics, context=([^,]+), server=([^>]+)><>([A-Za-z]+)
-      name: debezium_$1_$4
+    - pattern: debezium.([^:]+)<type=connector-metrics, context=([^,]+), server=([^>]+)><>([^:]+)
+      name: debezium_metrics_$4
       type: GAUGE
       labels:
+        plugin: "$1"
         context: "$2"
         server: "$3"
 ---
@@ -300,7 +299,7 @@ metadata:
 data:
   server.py: |
     from http.server import HTTPServer, BaseHTTPRequestHandler
-    import json, urllib.request, os
+    import json, urllib.request, os, sys
 
     MAILPIT = os.environ.get("MAILPIT_URL", "http://mailpit.kafka-cdc.svc:8025/api/v1/send")
 
@@ -327,14 +326,15 @@ data:
                 }
                 req = urllib.request.Request(MAILPIT, json.dumps(mail).encode(), {"Content-Type": "application/json"})
                 with urllib.request.urlopen(req, timeout=5) as resp:
+                    print(f"email sent: {action} {table} {name}", flush=True)
                     self.send_response(resp.status)
                     self.end_headers()
                     self.wfile.write(resp.read())
             except Exception as e:
+                print(f"email skipped: {e}", file=sys.stderr, flush=True)
                 self.send_response(200)
                 self.end_headers()
                 self.wfile.write(json.dumps({"status": "skipped", "reason": str(e)}).encode())
-        def log_message(self, fmt, *args): pass
 
     HTTPServer(("", 8080), Handler).serve_forever()
 ---

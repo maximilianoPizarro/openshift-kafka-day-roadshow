@@ -54,7 +54,7 @@ Try these PromQL queries:
 
 [source,promql]
 ----
-sum(rate(kafka_server_BrokerTopicMetrics_MessagesInPerSec[5m]))
+sum(rate(kafka_server_brokertopicmetrics_messagesinpersec_total{topic=~"cdc[.]public[.].+"}[5m]))
 ----
 
 === Consumer Lag by Topic
@@ -68,7 +68,7 @@ sum by (topic) (kafka_consumergroup_lag)
 
 [source,promql]
 ----
-debezium_metrics_Connected
+debezium_metrics_connected
 ----
 
 === Kafka Connect Task Status
