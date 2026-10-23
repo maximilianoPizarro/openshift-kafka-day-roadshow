@@ -111,7 +111,7 @@ Each artifact has a `BACKWARD` compatibility rule. New versions of the schema mu
 
 [source,bash,role="execute",subs="+attributes"]
 ----
-curl -sk {registry_url}/apis/registry/v3/groups/workshop/artifacts/customers-value/rules
+curl -sk {registry_url}/apis/registry/v3/groups/workshop/artifacts/customers-value/rules/COMPATIBILITY
 ----
 
 == Camel route
