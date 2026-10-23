@@ -504,8 +504,26 @@ data:
         except urllib.error.HTTPError as exc:
             status, body = exc.code, exc.read()
         print("contract-put", status, body[:400], flush=True)
-        if status not in (200, 201, 204):
+        if status not in (200, 201, 204, 409):
             raise SystemExit(f"contract failed {status}")
+
+    def govern(artifact_id):
+        status, body = request(
+            "PUT",
+            BASE + f"/apis/registry/v3/groups/workshop/artifacts/{artifact_id}/contract/compatibility-group",
+            {"contractId": "neuralbank-cdc", "compatibilityGroup": "neuralbank-cdc"},
+        )
+        print(artifact_id, "compat", status, body[:200], flush=True)
+        if status not in (200, 204):
+            raise SystemExit(f"compat {artifact_id} failed {status}")
+        status, body = request(
+            "POST",
+            BASE + f"/apis/registry/v3/groups/workshop/artifacts/{artifact_id}/contract/promote",
+            {"contractId": "neuralbank-cdc", "targetStage": "PROD"},
+        )
+        print(artifact_id, "stage", status, body[:200], flush=True)
+        if status not in (200, 204):
+            raise SystemExit(f"stage {artifact_id} failed {status}")
 
     def describe_group():
         status, body = request(
@@ -528,6 +546,8 @@ data:
     for artifact_id, meta in ARTIFACTS.items():
         ensure(artifact_id, meta)
     submit_contract()
+    for artifact_id in ARTIFACTS:
+        govern(artifact_id)
     describe_group()
     print("seed ok", flush=True)
 ---
