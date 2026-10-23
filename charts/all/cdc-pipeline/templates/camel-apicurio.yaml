@@ -64,6 +64,29 @@ spec:
               limits:
                 memory: 1Gi
                 cpu: "500m"
+            startupProbe:
+              httpGet:
+                path: /health/live
+                port: 9000
+              periodSeconds: 5
+              timeoutSeconds: 5
+              failureThreshold: 30
+            livenessProbe:
+              httpGet:
+                path: /health/live
+                port: 9000
+              initialDelaySeconds: 60
+              periodSeconds: 10
+              timeoutSeconds: 5
+              failureThreshold: 6
+            readinessProbe:
+              httpGet:
+                path: /health/ready
+                port: 9000
+              initialDelaySeconds: 20
+              periodSeconds: 10
+              timeoutSeconds: 5
+              failureThreshold: 12
   ui:
     replicas: 1
     ingress:
