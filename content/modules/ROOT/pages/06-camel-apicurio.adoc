@@ -54,14 +54,19 @@ spec:
       kafkasql:
         bootstrapServers: cdc-cluster-kafka-bootstrap:9092
     ingress:
-      host: cdc-registry-kafka-cdc.apps.ocp.example.com
+      enabled: false
   ui:
     replicas: 1
     ingress:
-      host: cdc-registry-ui-kafka-cdc.apps.ocp.example.com
+      enabled: false
 ----
 
-The host names on the cluster use your apps domain. The console is the *Registry* tab.
+The OpenShift Routes `cdc-registry` and `cdc-registry-ui` publish the API and the console with edge TLS. The console is the *Registry* tab.
+
+[source,bash,role="execute"]
+----
+oc get route cdc-registry cdc-registry-ui -n kafka-cdc
+----
 
 Check the journal topic:
 

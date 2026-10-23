@@ -50,7 +50,7 @@ spec:
       kafkasql:
         bootstrapServers: cdc-cluster-kafka-bootstrap:9092
     ingress:
-      host: cdc-registry-kafka-cdc.{{ $domain }}
+      enabled: false
     podDisruptionBudget:
       enabled: false
     podTemplateSpec:
@@ -90,7 +90,7 @@ spec:
   ui:
     replicas: 1
     ingress:
-      host: cdc-registry-ui-kafka-cdc.{{ $domain }}
+      enabled: false
     env:
       - name: REGISTRY_API_URL
         value: https://cdc-registry-kafka-cdc.{{ $domain }}/apis/registry/v3
@@ -107,6 +107,42 @@ spec:
               limits:
                 memory: 512Mi
                 cpu: 200m
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: cdc-registry
+  namespace: kafka-cdc
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
+spec:
+  host: cdc-registry-kafka-cdc.{{ $domain }}
+  to:
+    kind: Service
+    name: cdc-registry-app-service
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: cdc-registry-ui
+  namespace: kafka-cdc
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
+spec:
+  host: cdc-registry-ui-kafka-cdc.{{ $domain }}
+  to:
+    kind: Service
+    name: cdc-registry-ui-service
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
 ---
 apiVersion: v1
 kind: ConfigMap
