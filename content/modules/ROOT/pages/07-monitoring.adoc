@@ -75,7 +75,7 @@ debezium_metrics_connected
 
 [source,promql]
 ----
-kafka_connect_task_status
+count(kafka_connect_task_batch_size_max)
 ----
 
 == Kafka Exporter Metrics

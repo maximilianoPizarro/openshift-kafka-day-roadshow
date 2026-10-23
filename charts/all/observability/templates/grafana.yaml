@@ -130,7 +130,7 @@ spec:
           "gridPos": { "h": 4, "w": 6, "x": 0, "y": 16 },
           "targets": [
             {
-              "expr": "count(kafka_connect_task_status)",
+              "expr": "count(kafka_connect_task_batch_size_max)",
               "legendFormat": "Running"
             }
           ]
