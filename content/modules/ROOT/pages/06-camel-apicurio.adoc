@@ -92,18 +92,110 @@ spec:
 
 == Schemas
 
-Open the *Registry* tab. The group is `workshop`. The artifacts are `customers-value` and `orders-value`, both JSON Schema version `1`.
+Open the *Registry* tab. The group is `workshop`. Open `customers-value`, then the *Contract* tab. The same contract, `neuralbank-cdc`, is also attached to `orders-value`.
 
-`customers-value` requires `first_name`, `last_name`, and `email`. Extra columns, such as `id` or `phone`, are accepted. `orders-value` requires `product`, `amount`, `status`, and `customer_id`. `amount` is a string because Debezium emits decimals that way.
+|===
+|Contract field |Value
 
-Download the customer schema:
+|Status
+|Stable
+
+|Owner team
+|`neuralbank-platform`
+
+|Domain
+|`banking`
+
+|Classification
+|`CONFIDENTIAL`
+
+|Support
+|`platform@neuralbank.io`
+
+|Quality
+|Completeness, compliance, and stability, each 100%
+|===
+
+The contract rules require a customer email that contains `@` and a dot, and an order amount that is not empty. Scroll to *Contract Rules* to read those expressions.
+
+Download the contract:
 
 [source,bash,role="execute",subs="+attributes"]
 ----
-curl -sk {registry_url}/apis/registry/v3/groups/workshop/artifacts/customers-value/versions/1/content
+curl -sk {registry_url}/apis/registry/v3/groups/workshop/contracts/neuralbank-cdc
 ----
 
-Each artifact has a `BACKWARD` compatibility rule. New versions of the schema must be able to read data written with the previous version.
+On the *Overview* tab, each artifact header shows a name, a description, and the labels `domain=neuralbank` and `table`. Version `2` is the JSON Schema. Every column has a description, and an example row sits at the top of the document.
+
+`customers-value` is the NeuralBank customer row from `public.customers`:
+
+|===
+|Field |Required |Meaning
+
+|`first_name`
+|yes
+|Given name
+
+|`last_name`
+|yes
+|Family name
+
+|`email`
+|yes
+|Contact address. Must contain `@` and a dot
+
+|`id`
+|no
+|PostgreSQL primary key. Missing when you publish through the Bridge
+
+|`phone`
+|no
+|Present only after the instructor adds the column
+
+|`created_at`
+|no
+|Row timestamp from Debezium
+|===
+
+`orders-value` is the NeuralBank order row from `public.orders`:
+
+|===
+|Field |Required |Meaning
+
+|`product`
+|yes
+|Banking product, such as Mortgage or Personal Loan
+
+|`amount`
+|yes
+|Money as text, for example `15000.00`. Debezium emits decimals as strings
+
+|`status`
+|yes
+|`pending`, `approved`, `reviewing`, or `rejected`
+
+|`customer_id`
+|yes
+|Foreign key to `customers.id`
+
+|`id`, `created_at`
+|no
+|Assigned by PostgreSQL
+|===
+
+Extra columns are allowed. A new database column does not make the row invalid.
+
+Read the customer artifact header, then the latest schema:
+
+[source,bash,role="execute",subs="+attributes"]
+----
+curl -sk {registry_url}/apis/registry/v3/groups/workshop/artifacts/customers-value
+curl -sk {registry_url}/apis/registry/v3/groups/workshop/artifacts/customers-value/versions/2/content
+----
+
+The header lists `name`, `description`, and `labels`. The schema lists `title`, `description`, `examples`, and a `description` on every property.
+
+Each artifact has a `BACKWARD` compatibility rule. A newer version must still accept data written with the previous version. This version adds descriptions and optional columns. It does not add required fields.
 
 [source,bash,role="execute",subs="+attributes"]
 ----

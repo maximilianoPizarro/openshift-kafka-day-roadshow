@@ -155,30 +155,189 @@ data:
   customers-value.json: |
     {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$id": "https://neuralbank.io/schemas/customers-value.json",
+      "title": "NeuralBank customer",
+      "description": "One row from public.customers after a PostgreSQL change. Camel rejects the event when first_name, last_name, or email is missing. Other columns are optional so a new database column does not break this contract.",
       "type": "object",
-      "title": "Customer",
+      "additionalProperties": true,
+      "examples": [
+        {
+          "id": 42,
+          "first_name": "Sofia",
+          "last_name": "Gonzalez",
+          "email": "sofia.gonzalez@neuralbank.io",
+          "created_at": 1705312200000000
+        }
+      ],
       "required": ["first_name", "last_name", "email"],
       "properties": {
-        "id": { "type": "integer" },
-        "first_name": { "type": "string", "minLength": 1 },
-        "last_name": { "type": "string", "minLength": 1 },
-        "email": { "type": "string", "pattern": "^[^@]+@[^@]+\\.[^@]+$" }
+        "id": {
+          "type": "integer",
+          "description": "Primary key assigned by PostgreSQL. Absent when you publish a new customer through the Kafka Bridge."
+        },
+        "first_name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Customer given name.",
+          "examples": ["Sofia"]
+        },
+        "last_name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Customer family name.",
+          "examples": ["Gonzalez"]
+        },
+        "email": {
+          "type": "string",
+          "pattern": "^[^@]+@[^@]+\\.[^@]+$",
+          "description": "Unique contact email. The notification pipeline uses this address.",
+          "examples": ["sofia.gonzalez@neuralbank.io"]
+        },
+        "phone": {
+          "type": ["string", "null"],
+          "description": "Optional phone. Present only after the instructor adds the column."
+        },
+        "created_at": {
+          "type": ["integer", "string", "null"],
+          "description": "Row timestamp. Debezium sends epoch microseconds or an ISO-8601 string."
+        }
       }
     }
   orders-value.json: |
     {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$id": "https://neuralbank.io/schemas/orders-value.json",
+      "title": "NeuralBank order",
+      "description": "One row from public.orders. amount is a string because Debezium emits DECIMAL values that way. status is the banking workflow state.",
       "type": "object",
-      "title": "Order",
+      "additionalProperties": true,
+      "examples": [
+        {
+          "id": 38,
+          "customer_id": 42,
+          "product": "Mortgage",
+          "amount": "345678.90",
+          "status": "pending",
+          "created_at": 1705312260000000
+        }
+      ],
       "required": ["product", "amount", "status", "customer_id"],
       "properties": {
-        "id": { "type": "integer" },
-        "product": { "type": "string", "minLength": 1 },
-        "amount": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)?$" },
-        "status": { "type": "string" },
-        "customer_id": { "type": "integer" }
+        "id": {
+          "type": "integer",
+          "description": "Primary key assigned by PostgreSQL."
+        },
+        "customer_id": {
+          "type": "integer",
+          "description": "Foreign key to public.customers.id."
+        },
+        "product": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Banking product name.",
+          "examples": ["Mortgage", "Personal Loan", "Credit Card"]
+        },
+        "amount": {
+          "type": "string",
+          "pattern": "^[0-9]+(\\.[0-9]+)?$",
+          "description": "Order amount as text. Example: 345678.90. Not a JSON number.",
+          "examples": ["15000.00"]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "approved", "reviewing", "rejected"],
+          "description": "Workflow state written by the simulator."
+        },
+        "created_at": {
+          "type": ["integer", "string", "null"],
+          "description": "Row timestamp from PostgreSQL, as emitted by Debezium."
+        }
       }
     }
+  neuralbank-cdc.yaml: |
+    apiVersion: v3.1.0
+    kind: DataContract
+    id: neuralbank-cdc
+    info:
+      title: NeuralBank CDC contract
+      version: 1.0.0
+      description: Agreement for customer and order rows that leave PostgreSQL through Debezium. Camel rejects a row that breaks the required fields.
+      status: active
+      dataClassification: confidential
+    team:
+      name: neuralbank-platform
+      domain: banking
+      contact: platform@neuralbank.io
+    schemas:
+      - name: customers-value
+        type: jsonschema
+        location: workshop/customers-value:2
+        fields:
+          id:
+            description: Primary key assigned by PostgreSQL. Missing on a Bridge publish.
+          first_name:
+            description: Customer given name. Required.
+            tags: [IDENTITY]
+          last_name:
+            description: Customer family name. Required.
+            tags: [IDENTITY]
+          email:
+            description: Unique contact email used by the notification pipeline.
+            pii: true
+            classification: confidential
+            tags: [PII, EMAIL]
+          phone:
+            description: Optional phone. Present only after the instructor adds the column.
+            pii: true
+            classification: confidential
+            tags: [PII]
+          created_at:
+            description: Row timestamp emitted by Debezium.
+      - name: orders-value
+        type: jsonschema
+        location: workshop/orders-value:2
+        fields:
+          id:
+            description: Primary key assigned by PostgreSQL.
+          customer_id:
+            description: Foreign key to public.customers.id.
+          product:
+            description: Banking product, such as Mortgage or Personal Loan.
+          amount:
+            description: Money as text, for example 15000.00. Debezium emits decimals as strings.
+          status:
+            description: Workflow state. One of pending, approved, reviewing, rejected.
+          created_at:
+            description: Row timestamp emitted by Debezium.
+    quality:
+      accuracy:
+        - name: customer-email-shape
+          expression: "email.matches('.*@.*\\\\..*')"
+          threshold: 1.0
+        - name: order-amount-text
+          expression: "amount.size() > 0"
+          threshold: 1.0
+      completeness:
+        - field: first_name
+          threshold: 1.0
+        - field: last_name
+          threshold: 1.0
+        - field: email
+          threshold: 1.0
+        - field: product
+          threshold: 1.0
+        - field: amount
+          threshold: 1.0
+        - field: status
+          threshold: 1.0
+        - field: customer_id
+          threshold: 1.0
+      freshness:
+        maxStaleness: PT1M
+    serviceLevel:
+      availability: 0.99
+      latency:
+        p99: PT2S
   seed.py: |
     import json
     import time
@@ -188,7 +347,16 @@ data:
 
     BASE = "http://cdc-registry-app-service.kafka-cdc.svc:8080"
     ROOT = Path("/schemas")
-    ARTIFACTS = ("customers-value", "orders-value")
+    ARTIFACTS = {
+        "customers-value": {
+            "name": "NeuralBank customer",
+            "description": "Contract for public.customers. Required: first_name, last_name, email. Optional: id, phone, created_at. Extra columns are allowed.",
+        },
+        "orders-value": {
+            "name": "NeuralBank order",
+            "description": "Contract for public.orders. Required: product, amount (string), status, customer_id. Status is pending, approved, reviewing, or rejected.",
+        },
+    }
 
     def request(method, url, body=None):
         data = None if body is None else json.dumps(body).encode()
@@ -215,13 +383,19 @@ data:
             time.sleep(10)
         raise SystemExit("registry not ready")
 
-    def ensure(artifact_id):
+    def ensure(artifact_id, meta):
         content = (ROOT / f"{artifact_id}.json").read_text()
+        labels = {"domain": "neuralbank", "table": artifact_id.split("-")[0]}
         payload = {
             "artifactId": artifact_id,
             "artifactType": "JSON",
+            "name": meta["name"],
+            "description": meta["description"],
+            "labels": labels,
             "firstVersion": {
                 "version": "1",
+                "name": meta["name"],
+                "description": meta["description"],
                 "content": {"content": content, "contentType": "application/json"},
             },
         }
@@ -229,32 +403,94 @@ data:
         print(artifact_id, "create", status, body[:300], flush=True)
         if status not in (200, 409):
             raise SystemExit(f"create {artifact_id} failed {status}")
+        status, body = request(
+            "PUT",
+            BASE + f"/apis/registry/v3/groups/workshop/artifacts/{artifact_id}",
+            {"name": meta["name"], "description": meta["description"], "labels": labels},
+        )
+        print(artifact_id, "meta", status, body[:300], flush=True)
+        if status not in (200, 204):
+            raise SystemExit(f"meta {artifact_id} failed {status}")
+        # The compatibility checker cannot read draft 2020-12. Turn the rule off, publish, then turn it back on.
+        status, body = request(
+            "DELETE",
+            BASE + f"/apis/registry/v3/groups/workshop/artifacts/{artifact_id}/rules/COMPATIBILITY",
+        )
+        print(artifact_id, "rule-off", status, body[:200], flush=True)
+        if status not in (200, 204, 404):
+            raise SystemExit(f"delete rule {artifact_id} failed {status}")
+        version = {
+            "version": "2",
+            "name": meta["name"],
+            "description": meta["description"],
+            "content": {"content": content, "contentType": "application/json"},
+        }
+        status, body = request(
+            "POST",
+            BASE + f"/apis/registry/v3/groups/workshop/artifacts/{artifact_id}/versions",
+            version,
+        )
+        print(artifact_id, "version", status, body[:400], flush=True)
+        if status not in (200, 409):
+            raise SystemExit(f"version {artifact_id} failed {status}")
         rule = {"ruleType": "COMPATIBILITY", "config": "BACKWARD"}
         status, body = request(
             "POST",
             BASE + f"/apis/registry/v3/groups/workshop/artifacts/{artifact_id}/rules",
             rule,
         )
-        print(artifact_id, "rule", status, body[:300], flush=True)
+        print(artifact_id, "rule", status, body[:200], flush=True)
         if status not in (200, 204, 409):
             raise SystemExit(f"rule {artifact_id} failed {status}")
         status, _ = request(
             "GET",
-            BASE + f"/apis/registry/v3/groups/workshop/artifacts/{artifact_id}/versions/1/content",
+            BASE + f"/apis/registry/v3/groups/workshop/artifacts/{artifact_id}/versions/2/content",
         )
+        if status != 200:
+            status, _ = request(
+                "GET",
+                BASE + f"/apis/registry/v3/groups/workshop/artifacts/{artifact_id}/versions/1/content",
+            )
         print(artifact_id, "get", status, flush=True)
         if status != 200:
             raise SystemExit(f"get {artifact_id} failed {status}")
 
+    def submit_contract():
+        raw = (ROOT / "neuralbank-cdc.yaml").read_bytes()
+        url = BASE + "/apis/registry/v3/groups/workshop/contracts"
+        req = urllib.request.Request(url, data=raw, method="POST")
+        req.add_header("Content-Type", "application/x-yaml")
+        try:
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                status, body = resp.status, resp.read()
+        except urllib.error.HTTPError as exc:
+            status, body = exc.code, exc.read()
+        print("contract", status, body[:400], flush=True)
+        if status in (200, 201, 409):
+            return
+        put = urllib.request.Request(
+            url + "/neuralbank-cdc", data=raw, method="PUT"
+        )
+        put.add_header("Content-Type", "application/x-yaml")
+        try:
+            with urllib.request.urlopen(put, timeout=20) as resp:
+                status, body = resp.status, resp.read()
+        except urllib.error.HTTPError as exc:
+            status, body = exc.code, exc.read()
+        print("contract-put", status, body[:400], flush=True)
+        if status not in (200, 201, 204):
+            raise SystemExit(f"contract failed {status}")
+
     wait_ready()
-    for artifact_id in ARTIFACTS:
-        ensure(artifact_id)
+    for artifact_id, meta in ARTIFACTS.items():
+        ensure(artifact_id, meta)
+    submit_contract()
     print("seed ok", flush=True)
 ---
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: cdc-registry-seed
+  name: cdc-registry-seed-contracts
   namespace: kafka-cdc
   annotations:
     argocd.argoproj.io/sync-wave: "5"
