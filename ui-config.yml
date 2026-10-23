@@ -47,6 +47,3 @@ tabs:
 
   - name: Registry
     url: 'https://cdc-registry-ui-kafka-cdc.${DOMAIN}'
-
-  - name: OCP Console
-    url: 'https://showroom-showroom.${DOMAIN}/kafka-day-roadshow/main/openshift-console.html'
