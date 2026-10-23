@@ -129,6 +129,8 @@ oc run my-consumer -i --rm \
 
 This reads five messages from the orders topic and exits. You may see rows produced by the simulator or by other participants.
 
+Open the *OCP Console* tab and project `userN-workshop` to watch `my-consumer` while this command runs.
+
 == Checkpoint
 
 * Mailpit shows a subject starting with `CDC Created` or `CDC Updated`

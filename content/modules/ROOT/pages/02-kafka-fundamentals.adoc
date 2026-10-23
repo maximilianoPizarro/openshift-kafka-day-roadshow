@@ -119,6 +119,8 @@ printf '%s\n' \
 
 The command finishes with `pod "kafka-producer" deleted`. A PodSecurity warning on create is expected if the pod still runs and is deleted at the end.
 
+While it runs, open the *OCP Console* tab, switch to project `userN-workshop`, and watch the `kafka-producer` pod.
+
 == CLI: Consume Messages
 
 Read the messages back. The consumer stops on its own after five records. Shared topics may also show messages from other participants:

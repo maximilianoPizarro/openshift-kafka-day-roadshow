@@ -19,7 +19,7 @@ You are here: OpenShift, the Terminal, and your personal project. The rest of th
 
 == Step 1: Log in to the OpenShift Console
 
-Open the OpenShift Console in a new browser window:
+Open the *OCP Console* tab (or this URL in a new window):
 
 link:https://console-openshift-console.{cluster_domain}[OpenShift Console,window=_blank]
 

@@ -36,6 +36,9 @@ tabs:
     path: /terminal
     port: 443
 
+  - name: OCP Console
+    url: 'https://console-openshift-console.${DOMAIN}'
+
   - name: Kafka Console
     url: 'https://kafka-console-kafka-cdc.${DOMAIN}'
 

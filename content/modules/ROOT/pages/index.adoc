@@ -88,6 +88,10 @@ Your workshop runs in a split-panel interface with the following panels:
 |A web-based terminal pre-connected to your cluster. Run `oc` commands directly -- no local setup needed.
 |xref:01-setup.adoc[01 Lab Setup]
 
+|*OCP Console*
+|OpenShift web console. Watch pods in your project while a producer or consumer runs.
+|xref:02-kafka-fundamentals.adoc[02 Kafka Fundamentals]
+
 |*Kafka Console*
 |Browse topics, messages, and consumer groups.
 |xref:02-kafka-fundamentals.adoc[02 Kafka Fundamentals]
@@ -105,9 +109,7 @@ Your workshop runs in a split-panel interface with the following panels:
 |xref:06-camel-apicurio.adoc[06 Camel and Apicurio]
 |===
 
-Open the OpenShift web console in a separate browser window when you need it:
-
-link:{openshift_cluster_console_url}[OpenShift Console,window=_blank]
+The *OCP Console* tab shows the OpenShift web console inside the workshop. Use it to watch the client pod in your project while a producer or consumer command runs in *Terminal*.
 
 == Modules
 

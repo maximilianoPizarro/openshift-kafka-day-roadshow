@@ -52,7 +52,7 @@ oc apply -f examples/pattern-cr/hub-only.yaml
 | **Showroom (Lab Guide)** | `https://showroom-showroom.apps.<domain>` |
 | **Registration Admin** | `https://workshop-registration.apps.<domain>/admin` (token: `workshop-admin-2024`) |
 
-Participants enter their email on the registration page, get assigned `userN`, and are redirected to the lab guide with Terminal, Kafka Console, Mailpit, Grafana, and Registry tabs.
+Participants enter their email on the registration page, get assigned `userN`, and are redirected to the lab guide with Terminal, OCP Console, Kafka Console, Mailpit, Grafana, and Registry tabs.
 
 ### Users
 
