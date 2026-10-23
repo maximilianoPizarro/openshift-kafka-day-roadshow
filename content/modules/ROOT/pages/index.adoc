@@ -23,6 +23,7 @@ Welcome to the **OpenShift Kafka Day Roadshow** -- a hands-on workshop covering 
 * **Event Generation** -- See a real application producing events from database changes using Debezium.
 * **Event Consumption** -- Build and explore event processing pipelines that react to CDC events.
 * **Change Data Capture (CDC)** -- Use Debezium to capture PostgreSQL WAL changes and stream them to Kafka topics.
+* **Schema and integration** -- Validate those events with Apicurio Registry and a Camel route.
 * **Monitoring & Traceability** -- Explore Grafana dashboards, Kafka metrics, and distributed tracing with OpenTelemetry.
 
 == Architecture
@@ -61,6 +62,12 @@ image::cdc-architecture.jpg[OpenShift Kafka Day Roadshow CDC Pipeline,width=100%
 
 |OpenTelemetry
 |Distributed tracing collector
+
+|Apicurio Registry
+|JSON Schema registry for customer and order rows, stored in Kafka
+
+|Camel
+|Route that validates CDC rows and lab messages against Apicurio
 |===
 
 == Your Workshop Interface
@@ -89,6 +96,9 @@ Your workshop runs in a split-panel interface with the following panels:
 
 |*Grafana*
 |Dashboards for Kafka broker metrics, consumer lag, and Debezium statistics.
+
+|*Registry*
+|Apicurio Registry console for the workshop JSON Schemas.
 |===
 
 == Modules
@@ -118,11 +128,15 @@ Your workshop runs in a split-panel interface with the following panels:
 |25 min
 
 |05
-|xref:06-monitoring.adoc[Monitoring & Traceability]
+|xref:06-camel-apicurio.adoc[Camel and Apicurio Registry]
 |20 min
 
 |06
-|xref:07-summary.adoc[Wrap-up]
+|xref:07-monitoring.adoc[Monitoring & Traceability]
+|20 min
+
+|07
+|xref:08-summary.adoc[Wrap-up]
 |10 min
 |===
 

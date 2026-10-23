@@ -55,6 +55,11 @@ clusterGroup:
       namespace: openshift-opentelemetry-operator
       channel: stable
       source: redhat-operators
+    apicurio-registry-3:
+      name: apicurio-registry-3
+      namespace: openshift-operators
+      channel: 3.x
+      source: redhat-operators
 
   applications:
     platform:

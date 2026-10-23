@@ -4,5 +4,6 @@
 * xref:03-event-producer.adoc[Event Producer: Real Application]
 * xref:04-event-consumer.adoc[Event Consumer: Processing Pipeline]
 * xref:05-debezium-cdc.adoc[Debezium CDC]
-* xref:06-monitoring.adoc[Monitoring & Traceability]
-* xref:07-summary.adoc[Wrap-up]
+* xref:06-camel-apicurio.adoc[Camel and Apicurio Registry]
+* xref:07-monitoring.adoc[Monitoring & Traceability]
+* xref:08-summary.adoc[Wrap-up]

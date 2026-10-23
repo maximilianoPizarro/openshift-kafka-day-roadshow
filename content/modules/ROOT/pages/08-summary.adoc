@@ -22,6 +22,9 @@ Congratulations! In this workshop you explored a complete **Event-Driven Archite
 |Debezium CDC
 |PostgreSQL source connector, event structure (before/after), snapshots, DLQ, schema evolution
 
+|Camel and Apicurio
+|JSON Schemas in Apicurio Registry, Camel validation, valid and invalid records
+
 |Monitoring
 |Grafana dashboards, Kafka Exporter, PodMonitors, PromQL queries, load simulation
 |===
@@ -44,6 +47,11 @@ Congratulations! In this workshop you explored a complete **Event-Driven Archite
                          │   Grafana    │<────│  Prometheus  │  (PodMonitors)
                          │  (dashboards)│     │  (scraping)  │
                          └──────────────┘     └──────────────┘
+
+                         ┌──────────────┐     ┌──────────────┐
+                         │   Apicurio   │<───>│    Camel     │<── cdc.public.*
+                         │   Registry   │     │    router    │──> camel.public.*
+                         └──────────────┘     └──────────────┘
 ----
 
 == Production Considerations
@@ -52,14 +60,15 @@ When taking this architecture to production, consider:
 
 * **Security** -- Enable TLS and SCRAM-SHA-512 for all Kafka listeners; use OpenShift OAuth for Grafana
 * **Scaling** -- Add Kafka brokers and Connect workers; tune partition count for throughput
-* **Schema Registry** -- Add Apicurio Registry for Avro/Protobuf schema management
 * **Persistence** -- Use larger persistent volumes; configure retention policies
 * **High Availability** -- Set appropriate replication factors; use PodDisruptionBudgets
 * **GitOps** -- Manage everything through the Validated Pattern and ArgoCD
 
 == Next Steps
 
-* Explore the link:https://access.redhat.com/documentation/en-us/red_hat_amq_streams/[AMQ Streams documentation]
+* Explore the link:https://docs.redhat.com/en/documentation/red_hat_amq_streams[AMQ Streams documentation]
+* Explore the link:https://docs.redhat.com/en/documentation/red_hat_build_of_apicurio_registry[Apicurio Registry documentation]
+* Explore the link:https://docs.redhat.com/en/documentation/red_hat_build_of_apache_camel[Apache Camel documentation]
 * Learn about link:https://debezium.io/documentation/[Debezium] advanced features
 * Try the link:https://developers.redhat.com/[Red Hat Developer] learning paths
 * Explore the link:https://validatedpatterns.io/[Validated Patterns] framework

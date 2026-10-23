@@ -1,0 +1,504 @@
+{{- $domain := .Values.clusterDomain | default "apps.cluster.example.com" }}
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: kafkasql-journal
+  namespace: kafka-cdc
+  labels:
+    strimzi.io/cluster: cdc-cluster
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  partitions: 3
+  replicas: 3
+  config:
+    cleanup.policy: delete
+    retention.ms: -1
+    retention.bytes: -1
+{{- range $topic := list "camel.schema-check" "camel.validated" "camel.schema-errors" "camel.public.customers" "camel.public.orders" }}
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: {{ $topic }}
+  namespace: kafka-cdc
+  labels:
+    strimzi.io/cluster: cdc-cluster
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  partitions: 3
+  replicas: 3
+{{- end }}
+---
+apiVersion: registry.apicur.io/v1
+kind: ApicurioRegistry3
+metadata:
+  name: cdc-registry
+  namespace: kafka-cdc
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  app:
+    replicas: 1
+    storage:
+      type: kafkasql
+      kafkasql:
+        bootstrapServers: cdc-cluster-kafka-bootstrap:9092
+    ingress:
+      host: cdc-registry-kafka-cdc.{{ $domain }}
+    podDisruptionBudget:
+      enabled: false
+    podTemplateSpec:
+      spec:
+        containers:
+          - name: apicurio-registry-app
+            resources:
+              requests:
+                memory: 512Mi
+                cpu: 100m
+              limits:
+                memory: 1Gi
+                cpu: "500m"
+  ui:
+    replicas: 1
+    ingress:
+      host: cdc-registry-ui-kafka-cdc.{{ $domain }}
+    env:
+      - name: REGISTRY_API_URL
+        value: https://cdc-registry-kafka-cdc.{{ $domain }}/apis/registry/v3
+    podDisruptionBudget:
+      enabled: false
+    podTemplateSpec:
+      spec:
+        containers:
+          - name: apicurio-registry-ui
+            resources:
+              requests:
+                memory: 256Mi
+                cpu: 50m
+              limits:
+                memory: 512Mi
+                cpu: 200m
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cdc-registry-schemas
+  namespace: kafka-cdc
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+data:
+  customers-value.json: |
+    {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "title": "Customer",
+      "required": ["first_name", "last_name", "email"],
+      "properties": {
+        "id": { "type": "integer" },
+        "first_name": { "type": "string", "minLength": 1 },
+        "last_name": { "type": "string", "minLength": 1 },
+        "email": { "type": "string", "pattern": "^[^@]+@[^@]+\\.[^@]+$" }
+      }
+    }
+  orders-value.json: |
+    {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "title": "Order",
+      "required": ["product", "amount", "status", "customer_id"],
+      "properties": {
+        "id": { "type": "integer" },
+        "product": { "type": "string", "minLength": 1 },
+        "amount": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)?$" },
+        "status": { "type": "string" },
+        "customer_id": { "type": "integer" }
+      }
+    }
+  seed.py: |
+    import json
+    import time
+    import urllib.error
+    import urllib.request
+    from pathlib import Path
+
+    BASE = "http://cdc-registry-app-service.kafka-cdc.svc:8080"
+    ROOT = Path("/schemas")
+    ARTIFACTS = ("customers-value", "orders-value")
+
+    def request(method, url, body=None):
+        data = None if body is None else json.dumps(body).encode()
+        req = urllib.request.Request(url, data=data, method=method)
+        if body is not None:
+            req.add_header("Content-Type", "application/json")
+        try:
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                return resp.status, resp.read()
+        except urllib.error.HTTPError as exc:
+            return exc.code, exc.read()
+
+    def wait_ready():
+        deadline = time.time() + 600
+        url = BASE + "/apis/registry/v3/groups/workshop/artifacts"
+        while time.time() < deadline:
+            try:
+                status, _ = request("GET", url)
+                print("registry reachable", status, flush=True)
+                if status < 500:
+                    return
+            except Exception as exc:
+                print("waiting for registry", exc, flush=True)
+            time.sleep(10)
+        raise SystemExit("registry not ready")
+
+    def ensure(artifact_id):
+        content = (ROOT / f"{artifact_id}.json").read_text()
+        payload = {
+            "artifactId": artifact_id,
+            "artifactType": "JSON",
+            "firstVersion": {
+                "version": "1",
+                "content": {"content": content, "contentType": "application/json"},
+            },
+        }
+        status, body = request("POST", BASE + "/apis/registry/v3/groups/workshop/artifacts", payload)
+        print(artifact_id, "create", status, body[:300], flush=True)
+        if status not in (200, 409):
+            raise SystemExit(f"create {artifact_id} failed {status}")
+        rule = {"ruleType": "COMPATIBILITY", "config": "BACKWARD"}
+        status, body = request(
+            "POST",
+            BASE + f"/apis/registry/v3/groups/workshop/artifacts/{artifact_id}/rules",
+            rule,
+        )
+        print(artifact_id, "rule", status, body[:300], flush=True)
+        if status not in (200, 204, 409):
+            raise SystemExit(f"rule {artifact_id} failed {status}")
+        status, _ = request(
+            "GET",
+            BASE + f"/apis/registry/v3/groups/workshop/artifacts/{artifact_id}/versions/1/content",
+        )
+        print(artifact_id, "get", status, flush=True)
+        if status != 200:
+            raise SystemExit(f"get {artifact_id} failed {status}")
+
+    wait_ready()
+    for artifact_id in ARTIFACTS:
+        ensure(artifact_id)
+    print("seed ok", flush=True)
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: cdc-registry-seed
+  namespace: kafka-cdc
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  backoffLimit: 20
+  template:
+    spec:
+      restartPolicy: OnFailure
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: seed
+          image: registry.access.redhat.com/ubi9/python-311:latest
+          imagePullPolicy: IfNotPresent
+          command: ["python3", "/schemas/seed.py"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              memory: 128Mi
+              cpu: 50m
+            limits:
+              memory: 256Mi
+              cpu: 200m
+          volumeMounts:
+            - name: schemas
+              mountPath: /schemas
+      volumes:
+        - name: schemas
+          configMap:
+            name: cdc-registry-schemas
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: cdc-camel-router
+  namespace: kafka-cdc
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec: {}
+---
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: cdc-camel-router
+  namespace: kafka-cdc
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  successfulBuildsHistoryLimit: 1
+  failedBuildsHistoryLimit: 1
+  source:
+    type: Git
+    git:
+      uri: https://github.com/maximilianoPizarro/openshift-kafka-day-roadshow.git
+      ref: main
+    contextDir: camel/cdc-router
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: Dockerfile
+  resources:
+    requests:
+      memory: 1Gi
+      cpu: 200m
+    limits:
+      memory: 2Gi
+      cpu: "1"
+  output:
+    to:
+      kind: ImageStreamTag
+      name: cdc-camel-router:latest
+  triggers:
+    - type: ConfigChange
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cdc-camel-routes
+  namespace: kafka-cdc
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+data:
+  routes.yaml: |
+    - onException:
+        exception:
+          - java.lang.IllegalStateException
+        redeliveryPolicy:
+          maximumRedeliveries: -1
+          redeliveryDelay: 5000
+        handled:
+          constant: "false"
+    - route:
+        id: schema-check
+        from:
+          uri: "kafka:camel.schema-check"
+          parameters:
+            brokers: "cdc-cluster-kafka-bootstrap:9092"
+            groupId: "camel-schema-check"
+            autoOffsetReset: "earliest"
+            breakOnFirstError: "true"
+            valueDeserializer: "org.apache.kafka.common.serialization.StringDeserializer"
+          steps:
+            - setProperty:
+                name: eventSource
+                constant: bridge
+            - setProperty:
+                name: schemaArtifact
+                constant: customers-value
+            - setProperty:
+                name: originalBody
+                simple: "${body}"
+            - doTry:
+                steps:
+                  - unmarshal:
+                      json: {}
+                  - bean:
+                      ref: schemaGuard
+                      method: validateCustomer
+                  - bean:
+                      ref: schemaGuard
+                      method: successBody
+                  - to:
+                      uri: "kafka:camel.validated"
+                      parameters:
+                        brokers: "cdc-cluster-kafka-bootstrap:9092"
+                        valueSerializer: "org.apache.kafka.common.serialization.StringSerializer"
+                doCatch:
+                  - exception:
+                      - java.lang.Exception
+                    steps:
+                      - bean:
+                          ref: schemaGuard
+                          method: rethrowIfFetchFailure
+                      - bean:
+                          ref: schemaGuard
+                          method: errorBody
+                      - to:
+                          uri: "kafka:camel.schema-errors"
+                          parameters:
+                            brokers: "cdc-cluster-kafka-bootstrap:9092"
+                            valueSerializer: "org.apache.kafka.common.serialization.StringSerializer"
+    - route:
+        id: cdc-customers
+        from:
+          uri: "kafka:cdc.public.customers"
+          parameters:
+            brokers: "cdc-cluster-kafka-bootstrap:9092"
+            groupId: "camel-cdc-customers"
+            autoOffsetReset: "earliest"
+            breakOnFirstError: "true"
+            valueDeserializer: "org.apache.kafka.common.serialization.StringDeserializer"
+          steps:
+            - setProperty:
+                name: eventSource
+                constant: debezium
+            - setProperty:
+                name: schemaArtifact
+                constant: customers-value
+            - setProperty:
+                name: originalBody
+                simple: "${body}"
+            - doTry:
+                steps:
+                  - unmarshal:
+                      json: {}
+                  - bean:
+                      ref: schemaGuard
+                      method: customerAfter
+                  - bean:
+                      ref: schemaGuard
+                      method: validateCustomer
+                  - bean:
+                      ref: schemaGuard
+                      method: successBody
+                  - to:
+                      uri: "kafka:camel.public.customers"
+                      parameters:
+                        brokers: "cdc-cluster-kafka-bootstrap:9092"
+                        valueSerializer: "org.apache.kafka.common.serialization.StringSerializer"
+                doCatch:
+                  - exception:
+                      - java.lang.Exception
+                    steps:
+                      - bean:
+                          ref: schemaGuard
+                          method: rethrowIfFetchFailure
+                      - bean:
+                          ref: schemaGuard
+                          method: errorBody
+                      - to:
+                          uri: "kafka:camel.schema-errors"
+                          parameters:
+                            brokers: "cdc-cluster-kafka-bootstrap:9092"
+                            valueSerializer: "org.apache.kafka.common.serialization.StringSerializer"
+    - route:
+        id: cdc-orders
+        from:
+          uri: "kafka:cdc.public.orders"
+          parameters:
+            brokers: "cdc-cluster-kafka-bootstrap:9092"
+            groupId: "camel-cdc-orders"
+            autoOffsetReset: "earliest"
+            breakOnFirstError: "true"
+            valueDeserializer: "org.apache.kafka.common.serialization.StringDeserializer"
+          steps:
+            - setProperty:
+                name: eventSource
+                constant: debezium
+            - setProperty:
+                name: schemaArtifact
+                constant: orders-value
+            - setProperty:
+                name: originalBody
+                simple: "${body}"
+            - doTry:
+                steps:
+                  - unmarshal:
+                      json: {}
+                  - bean:
+                      ref: schemaGuard
+                      method: orderAfter
+                  - bean:
+                      ref: schemaGuard
+                      method: validateOrder
+                  - bean:
+                      ref: schemaGuard
+                      method: successBody
+                  - to:
+                      uri: "kafka:camel.public.orders"
+                      parameters:
+                        brokers: "cdc-cluster-kafka-bootstrap:9092"
+                        valueSerializer: "org.apache.kafka.common.serialization.StringSerializer"
+                doCatch:
+                  - exception:
+                      - java.lang.Exception
+                    steps:
+                      - bean:
+                          ref: schemaGuard
+                          method: rethrowIfFetchFailure
+                      - bean:
+                          ref: schemaGuard
+                          method: errorBody
+                      - to:
+                          uri: "kafka:camel.schema-errors"
+                          parameters:
+                            brokers: "cdc-cluster-kafka-bootstrap:9092"
+                            valueSerializer: "org.apache.kafka.common.serialization.StringSerializer"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cdc-camel-router
+  namespace: kafka-cdc
+  annotations:
+    argocd.argoproj.io/sync-wave: "6"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cdc-camel-router
+  template:
+    metadata:
+      labels:
+        app: cdc-camel-router
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: router
+          image: image-registry.openshift-image-registry.svc:5000/kafka-cdc/cdc-camel-router:latest
+          imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          env:
+            - name: APICURIO_BASE_URL
+              value: http://cdc-registry-app-service.kafka-cdc.svc:8080
+            - name: KAFKA_BOOTSTRAP
+              value: cdc-cluster-kafka-bootstrap:9092
+          resources:
+            requests:
+              memory: 256Mi
+              cpu: 50m
+            limits:
+              memory: 512Mi
+              cpu: 500m
+          volumeMounts:
+            - name: routes
+              mountPath: /etc/camel
+              readOnly: true
+      volumes:
+        - name: routes
+          configMap:
+            name: cdc-camel-routes

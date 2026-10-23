@@ -1,0 +1,240 @@
+= Camel and Apicurio Registry
+
+== Objectives
+
+* See where a schema registry fits in the CDC pipeline
+* Inspect Red Hat build of Apicurio Registry 3
+* Read the Camel route that validates customer and order rows
+* Publish one valid record and one invalid record
+
+== The validation path
+
+Debezium writes the PostgreSQL change to Kafka. Camel reads that event, loads the JSON Schema from Apicurio, and publishes a smaller record.
+
+[source,text]
+----
+cdc.public.customers / cdc.public.orders
+        |
+        v
+      Camel  ---- fetches schema ----  Apicurio Registry
+        |
+        +-- valid ----> camel.public.customers / camel.public.orders
+        +-- invalid --> camel.schema-errors
+
+Kafka Bridge --> camel.schema-check --> Camel
+        |
+        +-- valid ----> camel.validated
+        +-- invalid --> camel.schema-errors
+----
+
+`camel.schema-check` is checked against the customer schema. Orders are checked from `cdc.public.orders`.
+
+The registry stores its data in the Kafka topic `kafkasql-journal` on `cdc-cluster`. That topic keeps records forever. If it did not, Apicurio would refuse to start.
+
+== Apicurio Registry
+
+[source,bash,role="execute"]
+----
+oc get apicurioregistry3 cdc-registry -n kafka-cdc
+----
+
+.Expected ApicurioRegistry3 (offline reference)
+[source,yaml]
+----
+apiVersion: registry.apicur.io/v1
+kind: ApicurioRegistry3
+metadata:
+  name: cdc-registry
+  namespace: kafka-cdc
+spec:
+  app:
+    replicas: 1
+    storage:
+      type: kafkasql
+      kafkasql:
+        bootstrapServers: cdc-cluster-kafka-bootstrap:9092
+    ingress:
+      host: cdc-registry-kafka-cdc.apps.ocp.example.com
+  ui:
+    replicas: 1
+    ingress:
+      host: cdc-registry-ui-kafka-cdc.apps.ocp.example.com
+----
+
+The host names on the cluster use your apps domain. The console is the *Registry* tab.
+
+Check the journal topic:
+
+[source,bash,role="execute"]
+----
+oc get kafkatopic kafkasql-journal -n kafka-cdc -o yaml
+----
+
+.Expected journal topic (offline reference)
+[source,yaml]
+----
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: kafkasql-journal
+  namespace: kafka-cdc
+  labels:
+    strimzi.io/cluster: cdc-cluster
+spec:
+  partitions: 3
+  replicas: 3
+  config:
+    cleanup.policy: delete
+    retention.ms: -1
+    retention.bytes: -1
+----
+
+== Schemas
+
+Open the *Registry* tab. The group is `workshop`. The artifacts are `customers-value` and `orders-value`, both JSON Schema version `1`.
+
+`customers-value` requires `first_name`, `last_name`, and `email`. Extra columns, such as `id` or `phone`, are accepted. `orders-value` requires `product`, `amount`, `status`, and `customer_id`. `amount` is a string because Debezium emits decimals that way.
+
+Download the customer schema:
+
+[source,bash,role="execute",subs="+attributes"]
+----
+curl -sk {registry_url}/apis/registry/v3/groups/workshop/artifacts/customers-value/versions/1/content
+----
+
+Each artifact has a `BACKWARD` compatibility rule. New versions of the schema must be able to read data written with the previous version.
+
+[source,bash,role="execute",subs="+attributes"]
+----
+curl -sk {registry_url}/apis/registry/v3/groups/workshop/artifacts/customers-value/rules
+----
+
+== Camel route
+
+The route is Apache Camel YAML, mounted from a ConfigMap into the `cdc-camel-router` Deployment. Camel loads the schema from Apicurio when it validates a record. A record that does not match the schema is published to `camel.schema-errors` and the consumer continues.
+
+For a Debezium event, the row is `payload.after` (the same envelope you saw in the Debezium module). A delete, where `after` is null, is an invalid record.
+
+[source,bash,role="execute"]
+----
+oc get configmap cdc-camel-routes -n kafka-cdc -o yaml
+----
+
+.Expected schema-check route (offline reference)
+[source,yaml]
+----
+- route:
+    id: schema-check
+    from:
+      uri: "kafka:camel.schema-check"
+      parameters:
+        brokers: "cdc-cluster-kafka-bootstrap:9092"
+        groupId: "camel-schema-check"
+        autoOffsetReset: "earliest"
+      steps:
+        - setProperty:
+            name: eventSource
+            constant: bridge
+        - setProperty:
+            name: schemaArtifact
+            constant: customers-value
+        - unmarshal:
+            json: {}
+        - bean:
+            ref: schemaGuard
+            method: validateCustomer
+        - to:
+            uri: "kafka:camel.validated"
+----
+
+The ConfigMap also contains `cdc-customers` and `cdc-orders`. Those routes read `payload.after`, validate it, and write to `camel.public.customers` and `camel.public.orders`.
+
+List the Camel topics:
+
+[source,bash,role="execute"]
+----
+oc get kafkatopic -n kafka-cdc
+----
+
+You should see `camel.schema-check`, `camel.validated`, `camel.schema-errors`, `camel.public.customers`, and `camel.public.orders`.
+
+== Publish a valid customer
+
+All workshop users share these topics. The Camel Deployment is the only validator. When you read the output, look for your own email.
+
+[source,bash,role="execute",subs="+attributes"]
+----
+curl -sk -X POST {bridge_url}/topics/camel.schema-check \
+  -H "Content-Type: application/vnd.kafka.json.v2+json" \
+  -d '{"records":[{"value":{"first_name":"Workshop","last_name":"User","email":"workshop.user1@neuralbank.io"}}]}'
+----
+
+Read the validated record:
+
+[source,bash,role="execute"]
+----
+oc run camel-validated -ti --rm \
+  --image=registry.redhat.io/amq-streams/kafka-38-rhel9:latest \
+  --restart=Never \
+  -n kafka-cdc \
+  -- bin/kafka-console-consumer.sh \
+    --bootstrap-server cdc-cluster-kafka-bootstrap:9092 \
+    --topic camel.validated \
+    --from-beginning \
+    --max-messages 5 \
+    --timeout-ms 20000
+----
+
+The body contains `"schema":"customers-value"` and `"source":"bridge"`.
+
+== Publish an invalid customer
+
+This record has no `email`, so the schema rejects it.
+
+[source,bash,role="execute",subs="+attributes"]
+----
+curl -sk -X POST {bridge_url}/topics/camel.schema-check \
+  -H "Content-Type: application/vnd.kafka.json.v2+json" \
+  -d '{"records":[{"value":{"first_name":"Schema","last_name":"Test"}}]}'
+----
+
+[source,bash,role="execute"]
+----
+oc run camel-errors -ti --rm \
+  --image=registry.redhat.io/amq-streams/kafka-38-rhel9:latest \
+  --restart=Never \
+  -n kafka-cdc \
+  -- bin/kafka-console-consumer.sh \
+    --bootstrap-server cdc-cluster-kafka-bootstrap:9092 \
+    --topic camel.schema-errors \
+    --from-beginning \
+    --max-messages 5 \
+    --timeout-ms 20000
+----
+
+== A row from Debezium
+
+Camel also reads the CDC topics from the beginning. Consume one validated customer. `source` is `debezium`.
+
+[source,bash,role="execute"]
+----
+oc run camel-customers -ti --rm \
+  --image=registry.redhat.io/amq-streams/kafka-38-rhel9:latest \
+  --restart=Never \
+  -n kafka-cdc \
+  -- bin/kafka-console-consumer.sh \
+    --bootstrap-server cdc-cluster-kafka-bootstrap:9092 \
+    --topic camel.public.customers \
+    --from-beginning \
+    --max-messages 1 \
+    --timeout-ms 20000
+----
+
+== Summary
+
+You now understand:
+
+* [x] Apicurio Registry 3 stores the workshop JSON Schemas in Kafka
+* [x] The customer schema requires an email and allows extra columns
+* [x] Camel validates CDC rows and messages you publish through the bridge
+* [x] Invalid records go to `camel.schema-errors` without stopping the consumer

@@ -24,9 +24,11 @@ antora:
       label: Event Consumer
     - name: 05-debezium-cdc
       label: Debezium CDC
-    - name: 06-monitoring
+    - name: 06-camel-apicurio
+      label: Camel and Apicurio
+    - name: 07-monitoring
       label: Monitoring
-    - name: 07-summary
+    - name: 08-summary
       label: Wrap-up
 
 tabs:
@@ -46,3 +48,6 @@ tabs:
 
   - name: Grafana
     url: 'https://kafka-grafana-route-kafka-cdc.${DOMAIN}'
+
+  - name: Registry
+    url: 'https://cdc-registry-ui-kafka-cdc.${DOMAIN}'

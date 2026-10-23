@@ -18,6 +18,9 @@ rules:
   - apiGroups: ["monitoring.coreos.com"]
     resources: ["podmonitors"]
     verbs: ["get", "list", "watch"]
+  - apiGroups: ["registry.apicur.io"]
+    resources: ["apicurioregistries3"]
+    verbs: ["get", "list", "watch"]
 {{- range $i := until (int .Values.userCount) }}
 {{- $user := printf "user%d" (add1 $i) }}
 ---

@@ -130,6 +130,8 @@ data:
     mailpit_url: "https://mailpit-kafka-cdc.{{ $domain }}"
     grafana_url: "https://kafka-grafana-route-kafka-cdc.{{ $domain }}"
     bridge_url: "https://kafka-bridge-kafka-cdc.{{ $domain }}"
+    registry_url: "https://cdc-registry-kafka-cdc.{{ $domain }}"
+    registry_ui_url: "https://cdc-registry-ui-kafka-cdc.{{ $domain }}"
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim

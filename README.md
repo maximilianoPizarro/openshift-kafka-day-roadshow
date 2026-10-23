@@ -13,8 +13,9 @@ Deployed as a **Validated Pattern** (hub-only, single cluster).
 | 02 | Event Producer: Real Application | 20 min |
 | 03 | Event Consumer: Processing Pipeline | 15 min |
 | 04 | Debezium CDC | 25 min |
-| 05 | Monitoring & Traceability | 20 min |
-| 06 | Wrap-up | 10 min |
+| 05 | Camel and Apicurio Registry | 20 min |
+| 06 | Monitoring & Traceability | 20 min |
+| 07 | Wrap-up | 10 min |
 
 ## Components
 
@@ -27,6 +28,8 @@ Deployed as a **Validated Pattern** (hub-only, single cluster).
 - **Kafka Streams Console** -- Web UI for topics/messages
 - **Grafana** -- Kafka metrics dashboards
 - **OpenTelemetry** -- Distributed tracing collector
+- **Apicurio Registry** -- JSON Schema registry stored in Kafka
+- **Camel** -- Validates CDC rows and lab messages against Apicurio
 
 ## Quick Start
 
