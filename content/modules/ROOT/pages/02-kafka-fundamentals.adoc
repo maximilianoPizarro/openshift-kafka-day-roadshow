@@ -90,11 +90,15 @@ link:{kafka_console_url}[{kafka_console_url},window=_blank]
 
 You can produce messages directly from the command line. The client pod runs in your own namespace, `$(oc whoami)-workshop`, so it does not collide with the other participants. Kafka is reached with the cluster DNS name.
 
-Start a console producer:
+Send a few messages. The producer reads them from standard input and exits when the input ends. Do not stop it with `Ctrl+C`: that closes the `oc` session and prints `EOF` plus `terminated (Error)` even after Kafka has stored the records.
 
 [source,bash,role="execute",subs="+attributes"]
 ----
-oc run kafka-producer -ti --rm \
+printf '%s\n' \
+  'Hello from the Kafka workshop!' \
+  'Event-driven architecture rocks' \
+  '{"user": "user1", "action": "test"}' \
+| oc run kafka-producer -i --rm \
   --image={kafka_cli_image} \
   --restart=Never \
   -n $(oc whoami)-workshop \
@@ -103,34 +107,26 @@ oc run kafka-producer -ti --rm \
     --topic test-workshop
 ----
 
-Type a few messages and press Enter after each:
-
-[source,text]
-----
-Hello from the Kafka workshop!
-Event-driven architecture rocks
-{"user": "user1", "action": "test"}
-----
-
-Press `Ctrl+C` to exit.
+The command finishes with `pod "kafka-producer" deleted`.
 
 == CLI: Consume Messages
 
-In a new terminal, start a consumer to read those messages:
+Read the messages back. The consumer stops on its own after five records:
 
 [source,bash,role="execute",subs="+attributes"]
 ----
-oc run kafka-consumer -ti --rm \
+oc run kafka-consumer -i --rm \
   --image={kafka_cli_image} \
   --restart=Never \
   -n $(oc whoami)-workshop \
   -- bin/kafka-console-consumer.sh \
     --bootstrap-server cdc-cluster-kafka-bootstrap.kafka-cdc.svc:9092 \
     --topic test-workshop \
-    --from-beginning
+    --from-beginning \
+    --max-messages 5
 ----
 
-You should see all the messages you produced.
+You should see the messages you produced.
 
 == Explore the Kafka Bridge REST API
 
