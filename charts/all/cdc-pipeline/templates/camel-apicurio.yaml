@@ -107,6 +107,14 @@ spec:
               limits:
                 memory: 512Mi
                 cpu: 200m
+            volumeMounts:
+              - name: ui-nginx
+                mountPath: /opt/app-root/etc/nginx.default.d/workshop.conf
+                subPath: workshop.conf
+        volumes:
+          - name: ui-nginx
+            configMap:
+              name: cdc-registry-ui-nginx
 ---
 apiVersion: route.openshift.io/v1
 kind: Route
@@ -143,6 +151,18 @@ spec:
   tls:
     termination: edge
     insecureEdgeTerminationPolicy: Redirect
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cdc-registry-ui-nginx
+  namespace: kafka-cdc
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+data:
+  workshop.conf: |
+    sub_filter_once on;
+    sub_filter '</head>' '<style>.pf-m-grid.pf-v6-c-table{display:table!important;width:100%!important;table-layout:fixed!important}.pf-m-grid.pf-v6-c-table thead{display:table-header-group!important}.pf-m-grid.pf-v6-c-table tbody{display:table-row-group!important}.pf-m-grid.pf-v6-c-table tr.pf-v6-c-table__tr{display:table-row!important}.pf-v6-c-table :where(td,th){display:table-cell!important;max-width:none!important;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}.pf-v6-c-table :where(td,th):first-child{width:46%!important;white-space:normal!important}.pf-v6-c-table :where(td,th):last-child{width:2.5rem!important}</style></head>';
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -260,7 +280,7 @@ data:
     id: neuralbank-cdc
     info:
       title: NeuralBank CDC contract
-      version: 1.0.0
+      version: 1.1.0
       description: Agreement for customer and order rows that leave PostgreSQL through Debezium. Camel rejects a row that breaks the required fields.
       status: active
       dataClassification: confidential
@@ -403,10 +423,16 @@ data:
         print(artifact_id, "create", status, body[:300], flush=True)
         if status not in (200, 409):
             raise SystemExit(f"create {artifact_id} failed {status}")
+        status, current = request("GET", BASE + f"/apis/registry/v3/groups/workshop/artifacts/{artifact_id}")
+        existing = {}
+        if status == 200:
+            existing = json.loads(current).get("labels") or {}
+        merged = dict(existing)
+        merged.update(labels)
         status, body = request(
             "PUT",
             BASE + f"/apis/registry/v3/groups/workshop/artifacts/{artifact_id}",
-            {"name": meta["name"], "description": meta["description"], "labels": labels},
+            {"name": meta["name"], "description": meta["description"], "labels": merged},
         )
         print(artifact_id, "meta", status, body[:300], flush=True)
         if status not in (200, 204):
@@ -466,7 +492,7 @@ data:
         except urllib.error.HTTPError as exc:
             status, body = exc.code, exc.read()
         print("contract", status, body[:400], flush=True)
-        if status in (200, 201, 409):
+        if status in (200, 201):
             return
         put = urllib.request.Request(
             url + "/neuralbank-cdc", data=raw, method="PUT"
@@ -481,10 +507,28 @@ data:
         if status not in (200, 201, 204):
             raise SystemExit(f"contract failed {status}")
 
+    def describe_group():
+        status, body = request(
+            "PUT",
+            BASE + "/apis/registry/v3/groups/workshop",
+            {
+                "description": "NeuralBank CDC contracts. Customers and orders copied from PostgreSQL, validated by Camel before the email pipeline.",
+                "labels": {
+                    "domain": "neuralbank",
+                    "source": "postgresql",
+                    "owner": "neuralbank-platform",
+                },
+            },
+        )
+        print("group", status, body[:200], flush=True)
+        if status not in (200, 204):
+            raise SystemExit(f"group failed {status}")
+
     wait_ready()
     for artifact_id, meta in ARTIFACTS.items():
         ensure(artifact_id, meta)
     submit_contract()
+    describe_group()
     print("seed ok", flush=True)
 ---
 apiVersion: batch/v1
