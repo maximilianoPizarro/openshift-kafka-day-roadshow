@@ -1,5 +1,9 @@
 = Lab Setup & Overview
 
+== Workshop Architecture
+
+image::workshop-architecture.jpg[OpenShift Kafka Day Roadshow Architecture,width=100%]
+
 == Objectives
 
 * Log in to the OpenShift cluster
