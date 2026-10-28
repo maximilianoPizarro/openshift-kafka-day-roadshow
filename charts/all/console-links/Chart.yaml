@@ -1,0 +1,5 @@
+apiVersion: v2
+name: console-links
+description: OpenShift ConsoleLink entries for the workshop application menu
+type: application
+version: 0.1.0

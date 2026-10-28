@@ -133,3 +133,14 @@ clusterGroup:
       overrides:
         - name: userCount
           value: '{{ .Values.userCount | default 30 }}'
+
+    console-links:
+      name: console-links
+      namespace: openshift-gitops
+      argoProject: workshop
+      path: charts/all/console-links
+      syncWave: "5"
+      annotations:
+        argocd.argoproj.io/sync-wave: "5"
+      extraLocalClusterDomainFields:
+        - clusterDomain

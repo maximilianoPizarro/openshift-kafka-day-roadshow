@@ -1,0 +1,58 @@
+{{- $domain := .Values.clusterDomain | default "apps.cluster.example.com" }}
+{{- $section := "Kafka Day Roadshow" }}
+---
+apiVersion: console.openshift.io/v1
+kind: ConsoleLink
+metadata:
+  name: roadshow-kafka-console
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  applicationMenu:
+    imageURL: {{ include "console-links.iconURL" (dict "root" . "icon" "kafka-console.svg") | quote }}
+    section: {{ $section | quote }}
+  href: "https://kafka-console-kafka-cdc.{{ $domain }}"
+  location: ApplicationMenu
+  text: "Kafka Console"
+---
+apiVersion: console.openshift.io/v1
+kind: ConsoleLink
+metadata:
+  name: roadshow-apicurio-registry
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  applicationMenu:
+    imageURL: {{ include "console-links.iconURL" (dict "root" . "icon" "apicurio.svg") | quote }}
+    section: {{ $section | quote }}
+  href: "https://cdc-registry-ui-kafka-cdc.{{ $domain }}"
+  location: ApplicationMenu
+  text: "Apicurio Registry"
+---
+apiVersion: console.openshift.io/v1
+kind: ConsoleLink
+metadata:
+  name: roadshow-grafana
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  applicationMenu:
+    imageURL: {{ include "console-links.iconURL" (dict "root" . "icon" "grafana.svg") | quote }}
+    section: {{ $section | quote }}
+  href: "https://kafka-grafana-route-kafka-cdc.{{ $domain }}"
+  location: ApplicationMenu
+  text: "Grafana"
+---
+apiVersion: console.openshift.io/v1
+kind: ConsoleLink
+metadata:
+  name: roadshow-workshop-registration
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  applicationMenu:
+    imageURL: {{ include "console-links.iconURL" (dict "root" . "icon" "workshop-registration.png") | quote }}
+    section: {{ $section | quote }}
+  href: "https://workshop-registration.{{ $domain }}"
+  location: ApplicationMenu
+  text: "Workshop Registration"
