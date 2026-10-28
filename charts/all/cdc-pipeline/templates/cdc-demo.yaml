@@ -94,6 +94,8 @@ data:
     WHERE NOT EXISTS (SELECT 1 FROM orders LIMIT 1);
     GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO ${user};
     GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO ${user};
+    ALTER TABLE customers OWNER TO ${user};
+    ALTER TABLE orders OWNER TO ${user};
     DO \$\$
     BEGIN
       IF NOT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'cdc_publication') THEN
