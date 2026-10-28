@@ -18,7 +18,12 @@ ui:
     - path: ./content/lib
     - path: .nojekyll
     - path: ui.yml
-      contents: "static_files: [ .nojekyll ]"
+      contents: |
+        static_files:
+          - .nojekyll
+          - favicon.ico
+          - img/**
+          - css/site-extra.css
 
 runtime:
   cache_dir: ./.cache/antora
