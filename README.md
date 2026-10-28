@@ -1,8 +1,42 @@
+<p align="left">
+<img src="https://img.shields.io/badge/OpenShift-EE0000?style=for-the-badge&logo=redhatopenshift&logoColor=white" alt="OpenShift">
+<img src="https://img.shields.io/badge/Apache%20Kafka-231F20?style=for-the-badge&logo=apachekafka&logoColor=white" alt="Apache Kafka">
+<img src="https://img.shields.io/badge/Debezium-EF3B2D?style=for-the-badge&logo=debezium&logoColor=white" alt="Debezium">
+</p>
+
 # OpenShift Kafka Day Roadshow
 
-Hands-on workshop: NeuralBank needs customer emails and schema checks for PostgreSQL changes, without editing the banking app. Event-Driven Architecture with Apache Kafka, Debezium CDC, and observability on Red Hat OpenShift.
+Lab guide: [https://maximilianopizarro.github.io/openshift-kafka-day-roadshow/kafka-day-roadshow/main/](https://maximilianopizarro.github.io/openshift-kafka-day-roadshow/kafka-day-roadshow/main/)
 
-Deployed as a **Validated Pattern** (hub-only, single cluster). Duration: **2 hours**.
+## TL;DR
+
+NeuralBank's banking app keeps writing customers and orders to PostgreSQL. In **2 hours**, participants follow one row change into Kafka, see the notification email, reject a bad event with a JSON Schema, and read the pipeline in Grafana. The banking app is not modified.
+
+Hub-only Validated Pattern, one OpenShift cluster. For 30 people, request **4 workers, `m5a.4xlarge`** (64 vCPU / 256 Gi). Development fits on **2× `m5a.4xlarge`**.
+
+## What the activity explores
+
+You stay inside one business path and light it up piece by piece:
+
+1. **The cluster and your project.** Log in, find the shared `kafka-cdc` namespace, and confirm your own project `userN-workshop`.
+2. **Kafka itself.** Topics, partitions, a message you produce, a message you consume, and the same publish through the Kafka Bridge.
+3. **The producer.** A banking simulator inserts a customer and an order in PostgreSQL. The write-ahead log is on, so the change can leave the database.
+4. **The consumer.** That change becomes an email in Mailpit. You see who read it (the sink consumer group) and run your own consumer.
+5. **Debezium.** The Kafka record is the PostgreSQL change: operation, `before`, and `after`. A bad connector event would land on the dead-letter topic; an empty read there means the pipeline is keeping up.
+6. **The contract.** Apicurio Registry holds the customer and order JSON Schemas. Camel accepts a valid row and sends an invalid one to `camel.schema-errors` without stopping the route.
+7. **The health view.** Grafana shows broker traffic, consumer lag, Debezium, and Connect tasks for the same pipeline.
+
+The wrap-up asks what you would harden before this served real customers. No component replaces the banking app. Mail is the HTTP sink, the email transformer, and Mailpit.
+
+## What you learn
+
+| You can explain | Because you did this |
+|-----------------|----------------------|
+| A database change can become an event without editing the application | Watched PostgreSQL, then the Kafka topic, then the email |
+| Topic, partition, consumer group, and lag | Produced, consumed, and described the sink group |
+| What a CDC record contains | Read a Debezium `before` / `after` payload |
+| A schema is a contract, not a hope | Published one valid and one invalid customer and saw where each went |
+| Where to look when the pipeline is quiet or stuck | Ran the Grafana queries for rate, lag, Debezium, and Connect tasks |
 
 ## Workshop Modules
 
@@ -35,6 +69,7 @@ Deployed as a **Validated Pattern** (hub-only, single cluster). Duration: **2 ho
 ### Prerequisites
 
 - OpenShift 4.17+ with the **Validated Patterns Operator** installed
+- The **Community Operators** catalog enabled (Grafana is installed from it)
 - **Development**: 2x m5a.4xlarge workers (32 vCPU / 128 Gi)
 - **Workshop (30 users)**: 4x m5a.4xlarge workers (64 vCPU / 256 Gi)
 
@@ -57,6 +92,8 @@ Participants enter their email on the registration page, get assigned `userN`, a
 ### Users
 
 30 pre-provisioned HTPasswd users: `user1` through `user30`, password `Welcome123!`
+
+The pattern adds the `workshop-htpasswd` identity provider. Existing providers on the cluster, and `kubeadmin`, stay in place. No Keycloak setup is required.
 
 ## Cluster Sizing
 
