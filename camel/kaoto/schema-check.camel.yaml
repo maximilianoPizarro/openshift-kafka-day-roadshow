@@ -15,9 +15,9 @@
             simple: "${body}"
         - doTry:
             steps:
+              - to: "json-validator:schemas/customers-value.json"
               - unmarshal:
                   json: {}
-              - to: "json-validator:schemas/customers-value.json"
               - marshal:
                   json: {}
               - to:

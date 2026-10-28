@@ -312,7 +312,7 @@ You should see a record on `camel.schema-errors`. Camel keeps running after the 
 
 == See the route in Kaoto
 
-The shared Deployment uses Java (`SchemaGuard`) to fetch the schema from Apicurio. The same happy path can be drawn in Kaoto with `unmarshal`, `json-validator`, and a Kafka producer. That picture does **not** replace `cdc-camel-router`. It is a second, personal route you will run with Camel K.
+The shared Deployment uses Java (`SchemaGuard`) to fetch the schema from Apicurio. The same happy path can be drawn in Kaoto with `json-validator`, `unmarshal`, and a Kafka producer. `json-validator` reads the Kafka text. `unmarshal` comes after it: a `Map` cannot be validated as a JSON stream. That picture does **not** replace `cdc-camel-router`. It is a second, personal route you will run with Camel K.
 
 Open link:https://red.ht/kaoto[Kaoto,window=_blank] in a browser. Create a new Camel YAML route and paste the flow below. Replace `YOUR_USER` with your OpenShift username (`user1` through `user30`). The repo keeps the same file at `camel/kaoto/schema-check.camel.yaml`.
 
@@ -334,9 +334,9 @@ Open link:https://red.ht/kaoto[Kaoto,window=_blank] in a browser. Create a new C
             simple: "${body}"
         - doTry:
             steps:
+              - to: "json-validator:schemas/customers-value.json"
               - unmarshal:
                   json: {}
-              - to: "json-validator:schemas/customers-value.json"
               - marshal:
                   json: {}
               - to:
@@ -361,12 +361,33 @@ Your consumer group is `camel-schema-check-YOUR_USER`. The shared Deployment kee
 
 == Apply the route as an Integration
 
-Apache Camel K is installed on the cluster. Apply an `Integration` named `schema-check` in your project. The command substitutes your username and embeds the customer JSON Schema next to the route:
+Apache Camel K is installed on the cluster. Your project already has an `IntegrationPlatform` named `camel-k`, which publishes the kit with S2I into that project. Apply an `Integration` named `schema-check`. The command substitutes your username. The JSON Schema goes in a ConfigMap mounted at `/etc/camel/resources`. Camel K loads every file under `/etc/camel/sources` as a route, so the schema stays out of that directory and the validator reads it with a `file:` URI:
 
 [source,bash,role="execute"]
 ----
 USER=$(oc whoami)
 cat <<EOF | oc apply -n ${USER}-workshop -f -
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: schema-check-schemas
+data:
+  customers-value.json: |
+    {
+      "\$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["first_name", "last_name", "email"],
+      "properties": {
+        "first_name": { "type": "string", "minLength": 1 },
+        "last_name": { "type": "string", "minLength": 1 },
+        "email": { "type": "string", "pattern": "^[^@]+@[^@]+\\\\.[^@]+$" },
+        "phone": { "type": ["string", "null"] },
+        "id": { "type": "integer" },
+        "created_at": { "type": ["integer", "string", "null"] }
+      }
+    }
+---
 apiVersion: camel.apache.org/v1
 kind: Integration
 metadata:
@@ -394,9 +415,9 @@ spec:
                     simple: "\${body}"
                 - doTry:
                     steps:
+                      - to: "json-validator:file:/etc/camel/resources/schemas/customers-value.json"
                       - unmarshal:
                           json: {}
-                      - to: "json-validator:schemas/customers-value.json"
                       - marshal:
                           json: {}
                       - to:
@@ -415,22 +436,10 @@ spec:
                               parameters:
                                 brokers: cdc-cluster-kafka-bootstrap.kafka-cdc.svc:9092
                                 valueSerializer: org.apache.kafka.common.serialization.StringSerializer
-    - name: schemas/customers-value.json
-      content: |
-        {
-          "\$schema": "https://json-schema.org/draft/2020-12/schema",
-          "type": "object",
-          "additionalProperties": true,
-          "required": ["first_name", "last_name", "email"],
-          "properties": {
-            "first_name": { "type": "string", "minLength": 1 },
-            "last_name": { "type": "string", "minLength": 1 },
-            "email": { "type": "string", "pattern": "^[^@]+@[^@]+\\\\.[^@]+$" },
-            "phone": { "type": ["string", "null"] },
-            "id": { "type": "integer" },
-            "created_at": { "type": ["integer", "string", "null"] }
-          }
-        }
+  traits:
+    mount:
+      resources:
+        - "configmap:schema-check-schemas/customers-value.json@/etc/camel/resources/schemas/customers-value.json"
 EOF
 ----
 
