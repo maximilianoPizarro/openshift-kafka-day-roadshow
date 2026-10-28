@@ -18,7 +18,12 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-wave: "3"
 data:
-  init.sql: |
+  # RHEL postgresql image only sources *.sh under postgresql-init/ (not raw .sql).
+  01-cdc.sh: |
+    #!/bin/bash
+    set -euo pipefail
+    echo "=> bootstrapping CDC schema and replication role"
+    psql -v ON_ERROR_STOP=1 --username postgres --dbname "$POSTGRESQL_DATABASE" <<'EOSQL'
     ALTER SYSTEM SET wal_level = 'logical';
     ALTER SYSTEM SET max_replication_slots = 4;
     ALTER SYSTEM SET max_wal_senders = 4;
@@ -49,15 +54,53 @@ data:
       ('Laura',  'Fernandez', 'laura.fernandez@neuralbank.io')
     ON CONFLICT (email) DO NOTHING;
 
-    INSERT INTO orders (customer_id, product, amount, status) VALUES
+    INSERT INTO orders (customer_id, product, amount, status)
+    SELECT * FROM (VALUES
       (1, 'Personal Loan', 15000.00, 'approved'),
       (2, 'Credit Card',    5000.00, 'pending'),
       (3, 'Mortgage',     250000.00, 'reviewing'),
       (4, 'Auto Loan',     35000.00, 'approved'),
-      (5, 'Business Line',100000.00, 'pending');
+      (5, 'Business Line',100000.00, 'pending')
+    ) AS v(customer_id, product, amount, status)
+    WHERE NOT EXISTS (SELECT 1 FROM orders LIMIT 1);
 
     GRANT SELECT ON ALL TABLES IN SCHEMA public TO {{ .Values.postgresql.username }};
-    CREATE PUBLICATION cdc_publication FOR TABLE customers, orders;
+    GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO {{ .Values.postgresql.username }};
+
+    DO $$
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'cdc_publication') THEN
+        CREATE PUBLICATION cdc_publication FOR TABLE customers, orders;
+      END IF;
+    END $$;
+    EOSQL
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cdc-postgresql-start
+  namespace: kafka-cdc
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+data:
+  # Runs on every start so redeploys with an existing PVC still get REPLICATION + publication.
+  01-ensure-cdc.sh: |
+    #!/bin/bash
+    set -euo pipefail
+    psql -v ON_ERROR_STOP=1 --username postgres --dbname "$POSTGRESQL_DATABASE" <<'EOSQL'
+    ALTER ROLE {{ .Values.postgresql.username }} WITH REPLICATION;
+    GRANT SELECT ON ALL TABLES IN SCHEMA public TO {{ .Values.postgresql.username }};
+    GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO {{ .Values.postgresql.username }};
+    DO $$
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'cdc_publication') THEN
+        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'customers')
+           AND EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'orders') THEN
+          CREATE PUBLICATION cdc_publication FOR TABLE customers, orders;
+        END IF;
+      END IF;
+    END $$;
+    EOSQL
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -119,8 +162,9 @@ spec:
             - name: data
               mountPath: /var/lib/pgsql/data
             - name: init-scripts
-              mountPath: /opt/app-root/src/postgresql-init/init.sql
-              subPath: init.sql
+              mountPath: /opt/app-root/src/postgresql-init
+            - name: start-scripts
+              mountPath: /opt/app-root/src/postgresql-start
             - name: pg-cfg
               mountPath: /opt/app-root/src/postgresql-cfg
           resources:
@@ -145,6 +189,11 @@ spec:
         - name: init-scripts
           configMap:
             name: cdc-postgresql-init
+            defaultMode: 0755
+        - name: start-scripts
+          configMap:
+            name: cdc-postgresql-start
+            defaultMode: 0755
         - name: pg-cfg
           configMap:
             name: cdc-postgresql-cfg
