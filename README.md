@@ -99,7 +99,9 @@ Participants enter their email on the registration page, get assigned `userN`, a
 
 30 pre-provisioned HTPasswd users: `user1` through `user30`, password `Welcome123!`
 
-The pattern adds the `workshop-htpasswd` identity provider. Existing providers on the cluster, and `kubeadmin`, stay in place. No Keycloak setup is required.
+Cluster admin on the same login form: `kubeadmin` / `Welcome123!` (`cluster-admin`).
+
+The pattern adds the `workshop-htpasswd` identity provider and removes a sandbox Keycloak provider named `rhbk` when it is present. Other identity providers stay. No Keycloak setup is required.
 
 ## Cluster Sizing
 

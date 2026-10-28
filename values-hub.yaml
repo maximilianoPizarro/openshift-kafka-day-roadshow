@@ -76,6 +76,10 @@ clusterGroup:
       overrides:
         - name: userCount
           value: '{{ .Values.userCount | default 30 }}'
+        - name: kubeadmin.username
+          value: '{{ .Values.kubeadmin.username | default "kubeadmin" }}'
+        - name: kubeadmin.password
+          value: '{{ .Values.kubeadmin.password | default "Welcome123!" }}'
 
     cdc-pipeline:
       name: cdc-pipeline

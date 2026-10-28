@@ -1,3 +1,8 @@
 userCount: 30
 userPassword: "Welcome123!"
 clusterDomain: ""
+# Console cluster-admin for the workshop HTPasswd provider.
+# The built-in kubeadmin secret is separate and stays if the cluster already has one.
+kubeadmin:
+  username: kubeadmin
+  password: "Welcome123!"

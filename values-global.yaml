@@ -19,6 +19,10 @@ global:
 
 userCount: 30
 
+kubeadmin:
+  username: kubeadmin
+  password: "Welcome123!"
+
 postgresql:
   database: cdcdb
   username: cdcuser

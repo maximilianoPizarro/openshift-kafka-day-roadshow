@@ -86,12 +86,10 @@ metadata:
   name: workshop-oauth
   namespace: workshop-identity
   annotations:
-    argocd.argoproj.io/hook: PostSync
-    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
     argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/sync-options: Force=true,Replace=true
 spec:
-  backoffLimit: 3
-  ttlSecondsAfterFinished: 600
+  backoffLimit: 6
   template:
     spec:
       serviceAccountName: workshop-oauth
