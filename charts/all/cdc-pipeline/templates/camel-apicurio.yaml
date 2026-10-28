@@ -33,6 +33,23 @@ spec:
   partitions: 3
   replicas: 3
 {{- end }}
+{{- range $i := until (int .Values.userCount) }}
+{{- $user := printf "user%d" (add1 $i) }}
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: camel.lab-{{ $user }}
+  namespace: kafka-cdc
+  labels:
+    strimzi.io/cluster: cdc-cluster
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  partitions: 1
+  replicas: 3
+{{- end }}
 ---
 apiVersion: registry.apicur.io/v1
 kind: ApicurioRegistry3

@@ -27,7 +27,7 @@ Congratulations! You followed NeuralBank's path from a PostgreSQL row change to 
 |PostgreSQL source connector, event structure (before/after), snapshots, DLQ, database shape changes
 
 |Camel and Apicurio
-|JSON Schemas in Apicurio Registry, Camel validation, valid and invalid records
+|JSON Schemas in Apicurio Registry, Camel validation, Kaoto route, personal Camel K `Integration`
 
 |Monitoring
 |Grafana dashboards, Kafka Exporter, PodMonitors, PromQL queries

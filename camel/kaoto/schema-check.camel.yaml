@@ -1,0 +1,38 @@
+# Open in https://red.ht/kaoto or apply as Camel K Integration flows.
+# Replace YOUR_USER with your OpenShift username (user1 … user30) before you run it.
+- route:
+    id: schema-check
+    from:
+      uri: kafka:camel.schema-check
+      parameters:
+        brokers: cdc-cluster-kafka-bootstrap.kafka-cdc.svc:9092
+        groupId: camel-schema-check-YOUR_USER
+        autoOffsetReset: earliest
+        valueDeserializer: org.apache.kafka.common.serialization.StringDeserializer
+      steps:
+        - setProperty:
+            name: originalBody
+            simple: "${body}"
+        - doTry:
+            steps:
+              - unmarshal:
+                  json: {}
+              - to: "json-validator:schemas/customers-value.json"
+              - marshal:
+                  json: {}
+              - to:
+                  uri: kafka:camel.lab-YOUR_USER
+                  parameters:
+                    brokers: cdc-cluster-kafka-bootstrap.kafka-cdc.svc:9092
+                    valueSerializer: org.apache.kafka.common.serialization.StringSerializer
+            doCatch:
+              - exception:
+                  - org.apache.camel.component.jsonvalidator.JsonValidationException
+                steps:
+                  - setBody:
+                      simple: '{"error":"${exception.message}","source":"kaoto","payload":"${exchangeProperty.originalBody}"}'
+                  - to:
+                      uri: kafka:camel.lab-YOUR_USER
+                      parameters:
+                        brokers: cdc-cluster-kafka-bootstrap.kafka-cdc.svc:9092
+                        valueSerializer: org.apache.kafka.common.serialization.StringSerializer

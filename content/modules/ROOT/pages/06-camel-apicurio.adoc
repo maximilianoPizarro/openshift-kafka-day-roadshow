@@ -16,6 +16,7 @@ You are here: Apicurio Registry and Camel, with a side path to `camel.schema-err
 * Inspect Red Hat build of Apicurio Registry 3
 * Read the Camel route that validates customer and order rows
 * Publish one valid record and one invalid record
+* Open the same idea of route in Kaoto, apply it as a Camel K `Integration`, and prove it works
 
 == The validation path
 
@@ -309,6 +310,166 @@ oc run camel-errors -i --rm \
 
 You should see a record on `camel.schema-errors`. Camel keeps running after the rejection.
 
+== See the route in Kaoto
+
+The shared Deployment uses Java (`SchemaGuard`) to fetch the schema from Apicurio. The same happy path can be drawn in Kaoto with `unmarshal`, `json-validator`, and a Kafka producer. That picture does **not** replace `cdc-camel-router`. It is a second, personal route you will run with Camel K.
+
+Open link:https://red.ht/kaoto[Kaoto,window=_blank] in a browser. Create a new Camel YAML route and paste the flow below. Replace `YOUR_USER` with your OpenShift username (`user1` through `user30`). The repo keeps the same file at `camel/kaoto/schema-check.camel.yaml`.
+
+.Kaoto / Camel YAML (reference — paste into Kaoto)
+[source,yaml]
+----
+- route:
+    id: schema-check
+    from:
+      uri: kafka:camel.schema-check
+      parameters:
+        brokers: cdc-cluster-kafka-bootstrap.kafka-cdc.svc:9092
+        groupId: camel-schema-check-YOUR_USER
+        autoOffsetReset: earliest
+        valueDeserializer: org.apache.kafka.common.serialization.StringDeserializer
+      steps:
+        - setProperty:
+            name: originalBody
+            simple: "${body}"
+        - doTry:
+            steps:
+              - unmarshal:
+                  json: {}
+              - to: "json-validator:schemas/customers-value.json"
+              - marshal:
+                  json: {}
+              - to:
+                  uri: kafka:camel.lab-YOUR_USER
+                  parameters:
+                    brokers: cdc-cluster-kafka-bootstrap.kafka-cdc.svc:9092
+                    valueSerializer: org.apache.kafka.common.serialization.StringSerializer
+            doCatch:
+              - exception:
+                  - org.apache.camel.component.jsonvalidator.JsonValidationException
+                steps:
+                  - setBody:
+                      simple: '{"error":"${exception.message}","source":"kaoto","payload":"${exchangeProperty.originalBody}"}'
+                  - to:
+                      uri: kafka:camel.lab-YOUR_USER
+                      parameters:
+                        brokers: cdc-cluster-kafka-bootstrap.kafka-cdc.svc:9092
+                        valueSerializer: org.apache.kafka.common.serialization.StringSerializer
+----
+
+Your consumer group is `camel-schema-check-YOUR_USER`. The shared Deployment keeps `camel-schema-check`. They do not steal partitions from each other. Valid rows land on your topic `camel.lab-YOUR_USER`.
+
+== Apply the route as an Integration
+
+Apache Camel K is installed on the cluster. Apply an `Integration` named `schema-check` in your project. The command substitutes your username and embeds the customer JSON Schema next to the route:
+
+[source,bash,role="execute"]
+----
+USER=$(oc whoami)
+cat <<EOF | oc apply -n ${USER}-workshop -f -
+apiVersion: camel.apache.org/v1
+kind: Integration
+metadata:
+  name: schema-check
+spec:
+  dependencies:
+    - "camel:kafka"
+    - "camel:jackson"
+    - "camel:json-validator"
+  sources:
+    - name: schema-check.camel.yaml
+      content: |
+        - route:
+            id: schema-check
+            from:
+              uri: kafka:camel.schema-check
+              parameters:
+                brokers: cdc-cluster-kafka-bootstrap.kafka-cdc.svc:9092
+                groupId: camel-schema-check-${USER}
+                autoOffsetReset: earliest
+                valueDeserializer: org.apache.kafka.common.serialization.StringDeserializer
+              steps:
+                - setProperty:
+                    name: originalBody
+                    simple: "\${body}"
+                - doTry:
+                    steps:
+                      - unmarshal:
+                          json: {}
+                      - to: "json-validator:schemas/customers-value.json"
+                      - marshal:
+                          json: {}
+                      - to:
+                          uri: kafka:camel.lab-${USER}
+                          parameters:
+                            brokers: cdc-cluster-kafka-bootstrap.kafka-cdc.svc:9092
+                            valueSerializer: org.apache.kafka.common.serialization.StringSerializer
+                    doCatch:
+                      - exception:
+                          - org.apache.camel.component.jsonvalidator.JsonValidationException
+                        steps:
+                          - setBody:
+                              simple: '{"error":"\${exception.message}","source":"kaoto","payload":"\${exchangeProperty.originalBody}"}'
+                          - to:
+                              uri: kafka:camel.lab-${USER}
+                              parameters:
+                                brokers: cdc-cluster-kafka-bootstrap.kafka-cdc.svc:9092
+                                valueSerializer: org.apache.kafka.common.serialization.StringSerializer
+    - name: schemas/customers-value.json
+      content: |
+        {
+          "\$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["first_name", "last_name", "email"],
+          "properties": {
+            "first_name": { "type": "string", "minLength": 1 },
+            "last_name": { "type": "string", "minLength": 1 },
+            "email": { "type": "string", "pattern": "^[^@]+@[^@]+\\\\.[^@]+$" },
+            "phone": { "type": ["string", "null"] },
+            "id": { "type": "integer" },
+            "created_at": { "type": ["integer", "string", "null"] }
+          }
+        }
+EOF
+----
+
+Wait until the Integration is Ready (press `Ctrl+C` when `Ready` appears):
+
+[source,bash,role="execute"]
+----
+oc get integration schema-check -n $(oc whoami)-workshop -w
+----
+
+== Verify your Integration
+
+Publish one valid customer. The email embeds your OpenShift username:
+
+[source,bash,role="execute",subs="+attributes"]
+----
+curl -sk -X POST {bridge_url}/topics/camel.schema-check \
+  -H "Content-Type: application/vnd.kafka.json.v2+json" \
+  -d "{\"records\":[{\"value\":{\"first_name\":\"Kaoto\",\"last_name\":\"Lab\",\"email\":\"kaoto.$(oc whoami)@neuralbank.io\"}}]}"
+----
+
+Consume one message from **your** lab topic. Replace nothing in the topic name beyond what `oc whoami` already expands:
+
+[source,bash,role="execute",subs="+attributes"]
+----
+oc run camel-lab -i --rm \
+  --image={kafka_cli_image} \
+  --restart=Never \
+  -n $(oc whoami)-workshop \
+  -- bin/kafka-console-consumer.sh \
+    --bootstrap-server cdc-cluster-kafka-bootstrap.kafka-cdc.svc:9092 \
+    --topic camel.lab-$(oc whoami) \
+    --from-beginning \
+    --max-messages 1 \
+    --timeout-ms 15000
+----
+
+You should see a JSON customer with `first_name` `Kaoto`. The shared topics `camel.validated` and `camel.schema-errors` keep receiving events from `cdc-camel-router` as before.
+
 == A row from Debezium
 
 Camel also reads the CDC topics from the beginning. Consume one validated customer. `source` is `debezium`. The oldest record may be from earlier in the day or from another participant:
@@ -330,6 +491,8 @@ oc run camel-customers -i --rm \
 
 * The valid curl returned offsets
 * An invalid publish is followed by a record on `camel.schema-errors`
+* `oc get integration schema-check` in your project shows Ready
+* `camel.lab-$(oc whoami)` received the Kaoto lab customer
 
 == Summary
 
@@ -339,5 +502,6 @@ You now understand:
 * [x] The customer schema requires an email and allows extra columns
 * [x] Camel validates CDC rows and messages you publish through the bridge
 * [x] Invalid records go to `camel.schema-errors` without stopping the consumer
+* [x] The same route idea opens in Kaoto and runs as a personal Camel K `Integration`
 
 *Bridge:* Next: how do we see that this pipeline is keeping up?

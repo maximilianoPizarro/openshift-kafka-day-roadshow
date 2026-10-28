@@ -60,6 +60,12 @@ clusterGroup:
       namespace: openshift-operators
       channel: 3.x
       source: redhat-operators
+    # Community Camel K (Integration CR). Red Hat Camel K ended support 2025-06-30.
+    camel-k:
+      name: camel-k
+      namespace: openshift-operators
+      channel: stable-v2
+      source: community-operators
 
   applications:
     platform:

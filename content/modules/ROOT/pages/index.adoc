@@ -7,7 +7,7 @@ NeuralBank's core banking application writes customers and orders to PostgreSQL.
 This is a hands-on workshop on Event-Driven Architecture with Apache Kafka, Debezium Change Data Capture (CDC), and observability on Red Hat OpenShift.
 
 ****
-*Duration:* 2 hours for the CDC path, plus 25 minutes for Kafka identity +
+*Duration:* about 2 hours 10 minutes for the CDC path (including Kaoto + Camel K), plus 25 minutes for Kafka identity +
 *Format:* Hands-on workshop
 ****
 
@@ -26,7 +26,7 @@ This is a hands-on workshop on Event-Driven Architecture with Apache Kafka, Debe
 * **Event Producer** -- Watch a banking simulator write to PostgreSQL and see the change appear in Kafka.
 * **Event Consumer** -- Follow the HTTP Sink through the email transformer into Mailpit.
 * **Debezium CDC** -- See how PostgreSQL WAL changes become Kafka records.
-* **Camel and Apicurio Registry** -- Validate rows against a JSON Schema and reject bad events without stopping the pipeline.
+* **Camel and Apicurio Registry** -- Validate rows against a JSON Schema, reject bad events without stopping the pipeline, open the route in Kaoto, and apply it as a Camel K `Integration`.
 * **Monitoring** -- Read Grafana dashboards, consumer lag, and Debezium metrics.
 * **Kafka Users** -- Create a SCRAM `KafkaUser` and connect on the TLS listener.
 * **Authentication with Keycloak** -- Map today's SCRAM path to a production OAuth listener (read only).

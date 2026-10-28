@@ -10,7 +10,7 @@ Lab guide: [https://maximilianopizarro.github.io/openshift-kafka-day-roadshow/ka
 
 ## TL;DR
 
-NeuralBank's banking app keeps writing customers and orders to PostgreSQL. In **2 hours**, participants follow one row change into Kafka, see the notification email, reject a bad event with a JSON Schema, and read the pipeline in Grafana. An optional **25 minutes** adds a SCRAM `KafkaUser` exercise and a read-only Keycloak identity map. The banking app is not modified.
+NeuralBank's banking app keeps writing customers and orders to PostgreSQL. In about **2 hours 10 minutes**, participants follow one row change into Kafka, see the notification email, reject a bad event with a JSON Schema, open that route in Kaoto, apply a Camel K `Integration`, and read the pipeline in Grafana. An optional **25 minutes** adds a SCRAM `KafkaUser` exercise and a read-only Keycloak identity map. The banking app is not modified.
 
 Hub-only Validated Pattern, one OpenShift cluster. For 30 people, request **4 workers, `m5a.4xlarge`** (64 vCPU / 256 Gi). Development fits on **2× `m5a.4xlarge`**.
 
@@ -51,7 +51,7 @@ The wrap-up asks what you would harden before this served real customers. No com
 | 03 | Event Producer: Real Application | 15 min |
 | 04 | Event Consumer: Processing Pipeline | 15 min |
 | 05 | Debezium CDC | 20 min |
-| 06 | Camel and Apicurio Registry | 20 min |
+| 06 | Camel and Apicurio Registry | 30 min |
 | 07 | Monitoring | 15 min |
 | 08 | Kafka Users | 15 min |
 | 09 | Authentication with Keycloak | 10 min |
@@ -69,6 +69,7 @@ The wrap-up asks what you would harden before this served real customers. No com
 - **Grafana** -- Kafka metrics dashboards
 - **Apicurio Registry** -- JSON Schema registry stored in Kafka
 - **Camel** -- Validates CDC rows and lab messages against Apicurio
+- **Camel K + Kaoto** -- Personal `Integration` that mirrors the schema-check route
 
 ## Quick Start
 

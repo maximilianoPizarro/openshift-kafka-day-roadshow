@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://neuralbank.io/schemas/customers-value.json",
+  "title": "NeuralBank customer",
+  "description": "Customer row for the Kaoto schema-check lab route. Required: first_name, last_name, email.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "first_name",
+    "last_name",
+    "email"
+  ],
+  "properties": {
+    "id": {
+      "type": "integer"
+    },
+    "first_name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "last_name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "email": {
+      "type": "string",
+      "pattern": "^[^@]+@[^@]+\\.[^@]+$"
+    },
+    "phone": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "created_at": {
+      "type": [
+        "integer",
+        "string",
+        "null"
+      ]
+    }
+  }
+}
