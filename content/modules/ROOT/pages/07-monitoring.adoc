@@ -156,4 +156,4 @@ Watch the Grafana dashboard while the instructor temporarily sets `INTERVAL_SECO
 * [x] PodMonitors automatically scrape Kafka component metrics
 * [x] Load changes are an instructor-led demo on a shared simulator
 
-*Bridge:* Next: what would you harden before this served real NeuralBank customers?
+*Bridge:* The pipeline is visible. Next: connect as yourself with a SCRAM KafkaUser.

@@ -6,4 +6,6 @@
 * xref:05-debezium-cdc.adoc[Debezium CDC]
 * xref:06-camel-apicurio.adoc[Camel and Apicurio Registry]
 * xref:07-monitoring.adoc[Monitoring]
-* xref:08-summary.adoc[Wrap-up]
+* xref:08-kafka-users.adoc[Kafka Users]
+* xref:09-keycloak-auth.adoc[Authentication with Keycloak]
+* xref:10-summary.adoc[Wrap-up]

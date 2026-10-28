@@ -46,6 +46,8 @@ debezium-postgresql-source    cdc-connect   io.debezium.connector.postgresql.Pos
 mailpit-http-sink             cdc-connect   io.aiven.kafka.connect.http.HttpSinkConnector            1           True
 ----
 
+Full connector fields: link:https://docs.redhat.com/en/documentation/red_hat_streams_for_apache_kafka/3.2/html/streams_for_apache_kafka_api_reference/type-kafkaconnector-reference[KafkaConnector schema reference,window=_blank].
+
 .Expected Debezium connector (reference, not a step)
 [source,yaml]
 ----

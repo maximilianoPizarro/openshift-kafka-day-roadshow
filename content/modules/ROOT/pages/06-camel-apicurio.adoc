@@ -34,6 +34,8 @@ The registry stores its data in the Kafka topic `kafkasql-journal` on `cdc-clust
 oc get apicurioregistry3 cdc-registry -n kafka-cdc
 ----
 
+Full CR fields: link:https://docs.redhat.com/en/documentation/red_hat_build_of_apicurio_registry/3.2/html/installing_and_deploying_apicurio_registry_on_openshift/operator-config-reference_registry[Apicurio Registry Operator configuration reference,window=_blank].
+
 .Expected ApicurioRegistry3 (reference, not a step)
 [source,yaml]
 ----

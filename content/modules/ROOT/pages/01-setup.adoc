@@ -65,25 +65,7 @@ You should see pods running for:
 * `mailpit` -- Email inbox viewer
 * `kafka-console` -- Kafka Console UI
 
-.Expected Kafka cluster (reference, not a step)
-[source,yaml]
-----
-apiVersion: kafka.strimzi.io/v1beta2
-kind: Kafka
-metadata:
-  name: cdc-cluster
-  namespace: kafka-cdc
-  annotations:
-    strimzi.io/node-pools: enabled
-    strimzi.io/kraft: enabled
-spec:
-  kafka:
-    listeners:
-      - name: plain
-        port: 9092
-        type: internal
-        tls: false
-----
+The cluster is a `Kafka` custom resource plus a `KafkaNodePool`. Module 02 shows both listeners and links to the Streams for Apache Kafka API reference. Do not change those objects here.
 
 == Step 4: Access the Key UIs
 

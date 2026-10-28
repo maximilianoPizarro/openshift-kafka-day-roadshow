@@ -1,0 +1,121 @@
+= Kafka Users
+
+****
+*Guiding question:* Can you connect as yourself, not as the open listener?
+****
+
+== Where we are
+
+Modules 02 through 07 used port `9092`, the plain listener. Connect already uses port `9093` as `cdc-user` with SCRAM and TLS. The User Operator can create the same kind of credential for you.
+
+== Objectives
+
+* Create a `KafkaUser` named after your OpenShift login
+* Read the password Secret the User Operator writes
+* Produce and consume on the SCRAM TLS listener (`9093`)
+
+== Concept
+
+A `KafkaUser` asks the User Operator for credentials. With `authentication.type: scram-sha-512`, the operator stores a password in a Secret of the same name. Full fields: link:https://docs.redhat.com/en/documentation/red_hat_streams_for_apache_kafka/3.2/html/streams_for_apache_kafka_api_reference/type-kafkauser-reference[KafkaUser schema reference,window=_blank].
+
+This cluster does **not** set `spec.kafka.authorization`. Port `9092` stays open. Connecting on `9093` as yourself proves identity. It does not lock the topic.
+
+== Create your KafkaUser
+
+Apply a user whose name is exactly your OpenShift username (`user1` through `user30`):
+
+[source,bash,role="execute"]
+----
+cat <<EOF | oc apply -n kafka-cdc -f -
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaUser
+metadata:
+  name: $(oc whoami)
+  labels:
+    strimzi.io/cluster: cdc-cluster
+spec:
+  authentication:
+    type: scram-sha-512
+EOF
+----
+
+Wait until the Secret exists (press `Ctrl+C` when it appears):
+
+[source,bash,role="execute"]
+----
+oc get secret $(oc whoami) -n kafka-cdc -w
+----
+
+You cannot change or read `cdc-user`. That password belongs to Kafka Connect.
+
+== Client Secret in your project
+
+Build a client config that points at the SCRAM listener. The Secret lives in your personal project so the client pod can mount it:
+
+[source,bash,role="execute"]
+----
+USER=$(oc whoami)
+PASS=$(oc get secret ${USER} -n kafka-cdc -o jsonpath='{.data.password}' | base64 -d)
+oc extract secret/cdc-cluster-cluster-ca-cert -n kafka-cdc --keys=ca.crt --to=/tmp --confirm
+cat > /tmp/client.properties <<EOF
+security.protocol=SASL_SSL
+sasl.mechanism=SCRAM-SHA-512
+sasl.jaas.config=org.apache.kafka.common.security.scram.ScramLoginModule required username="${USER}" password="${PASS}";
+ssl.truststore.type=PEM
+ssl.truststore.location=/certs/ca.crt
+EOF
+oc create secret generic kafka-scram-client \
+  -n ${USER}-workshop \
+  --from-file=client.properties=/tmp/client.properties \
+  --from-file=ca.crt=/tmp/ca.crt \
+  --dry-run=client -o yaml | oc apply -f -
+----
+
+== Produce on port 9093
+
+Send one authenticated message. The producer reads stdin and exits when the input ends:
+
+[source,bash,role="execute",subs="+attributes"]
+----
+printf 'Authenticated as %s\n' "$(oc whoami)" \
+| oc run kafka-scram-producer -i --rm \
+  --image={kafka_cli_image} \
+  --restart=Never \
+  -n $(oc whoami)-workshop \
+  --overrides='{"spec":{"containers":[{"name":"kafka-scram-producer","image":"{kafka_cli_image}","stdin":true,"command":["bin/kafka-console-producer.sh","--bootstrap-server","cdc-cluster-kafka-bootstrap.kafka-cdc.svc:9093","--topic","test-workshop","--producer.config","/certs/client.properties"],"volumeMounts":[{"name":"certs","mountPath":"/certs"}]}],"volumes":[{"name":"certs","secret":{"secretName":"kafka-scram-client"}}]}}'
+----
+
+The command finishes with `pod "kafka-scram-producer" deleted`. A PodSecurity warning on create is expected.
+
+While it runs, open the *OCP Console* tab, switch to project `userN-workshop`, and watch the `kafka-scram-producer` pod.
+
+== Consume on port 9093
+
+Read one record with the same identity:
+
+[source,bash,role="execute",subs="+attributes"]
+----
+oc run kafka-scram-consumer -i --rm \
+  --image={kafka_cli_image} \
+  --restart=Never \
+  -n $(oc whoami)-workshop \
+  --overrides='{"spec":{"containers":[{"name":"kafka-scram-consumer","image":"{kafka_cli_image}","stdin":true,"command":["bin/kafka-console-consumer.sh","--bootstrap-server","cdc-cluster-kafka-bootstrap.kafka-cdc.svc:9093","--topic","test-workshop","--from-beginning","--max-messages","1","--consumer.config","/certs/client.properties"],"volumeMounts":[{"name":"certs","mountPath":"/certs"}]}],"volumes":[{"name":"certs","secret":{"secretName":"kafka-scram-client"}}]}}'
+----
+
+You should see a line that includes `Authenticated as userN`. Shared topics may also show older records from other participants.
+
+== Checkpoint
+
+* Your `KafkaUser` exists in `kafka-cdc`
+* The Secret `kafka-scram-client` exists in your project
+* The SCRAM consumer printed a message from `test-workshop`
+
+Port `9092` is still open. Anyone can still produce without a password. Module 09 shows how production would replace that path with Red Hat build of Keycloak.
+
+== Summary
+
+* [x] Created a SCRAM `KafkaUser` for your login
+* [x] Connected to the TLS listener on port `9093`
+* [x] Proved identity without enabling Kafka authorization
+
+*Bridge:* You have a Kafka identity. Next: how a production cluster would hand that identity to Red Hat build of Keycloak.

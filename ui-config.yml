@@ -28,7 +28,11 @@ antora:
       label: Camel and Apicurio
     - name: 07-monitoring
       label: Monitoring
-    - name: 08-summary
+    - name: 08-kafka-users
+      label: Kafka Users
+    - name: 09-keycloak-auth
+      label: Authentication with Keycloak
+    - name: 10-summary
       label: Wrap-up
 
 tabs:

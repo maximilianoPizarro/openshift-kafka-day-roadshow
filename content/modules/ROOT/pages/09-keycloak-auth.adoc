@@ -1,0 +1,79 @@
+= Authentication with Keycloak
+
+****
+*Guiding question:* How would production replace the open listener without adding Keycloak to this lab cluster?
+****
+
+== Where we are
+
+You proved SCRAM identity on port `9093`. The workshop still leaves port `9092` open so Debezium, Camel, Apicurio, and the Bridge keep working. Production does not leave that door open.
+
+This module is **read only**. Do not install Keycloak. Do not add an OAuth listener. Do not set `spec.kafka.authorization`. Those changes would roll the brokers and break the shared pipeline.
+
+== Objectives
+
+* Name the pieces of a Keycloak-backed Kafka login
+* Contrast today's plain and SCRAM paths with a production OAuth listener
+* Point to the Streams for Apache Kafka guide you would follow later
+
+== Today's path and the production path
+
+image::kafka-keycloak-auth.jpg[Workshop SCRAM path versus production Keycloak OAuth path,width=100%]
+
+[cols="1,2"]
+|===
+|Path |What happens
+
+|This workshop (left)
+|Clients on `9092` need no password. Clients on `9093` use a `KafkaUser` password (SCRAM). Authorization is off, so a valid login can still reach every topic.
+
+|Production with Keycloak (right)
+|A client asks **Red Hat build of Keycloak** for an access token. An AMQ Streams listener validates that token with `authentication.type: custom` and the `OAUTHBEARER` SASL mechanism. Authorization (`simple` or the Keycloak authorizer) decides which topics the principal may use.
+|===
+
+Connect, Camel, and Debezium would become service accounts with their own Keycloak clients. Workshop users would not share one open listener.
+
+== What you would configure later
+
+The Streams for Apache Kafka guide walks through the listener JAAS settings, JWKS validation, and Keycloak Authorization Services:
+
+link:https://docs.redhat.com/en/documentation/red_hat_streams_for_apache_kafka/3.2/html/deploying_and_managing_streams_for_apache_kafka_on_openshift/assembly-oauth-security-str[Configuring OAuth 2.0 token-based security,window=_blank]
+
+A production listener sketch (do **not** apply on this cluster):
+
+[source,yaml]
+----
+# Reference only — not for this workshop cluster
+listeners:
+  - name: oauth
+    port: 9094
+    type: internal
+    tls: true
+    authentication:
+      type: custom
+      sasl: true
+      listenerConfig:
+        sasl.enabled.mechanisms: OAUTHBEARER
+        oauthbearer.sasl.server.callback.handler.class: io.strimzi.kafka.oauth.server.JaasServerOauthValidatorCallbackHandler
+        oauthbearer.sasl.jaas.config: |
+          org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule required
+            oauth.valid.issuer.uri="https://sso.example.com/realms/kafka"
+            oauth.jwks.endpoint.uri="https://sso.example.com/realms/kafka/protocol/openid-connect/certs"
+            oauth.username.claim="preferred_username";
+----
+
+Turning on authorization after that step is a separate change. Anonymous clients on a plain listener become unauthorized. That is why this workshop keeps authorization off and leaves `9092` open for the CDC path.
+
+== Checkpoint
+
+* You can describe the Keycloak token flow without deploying it
+* You know why this cluster stays on SCRAM plus an open plain listener
+* You have the Streams OAuth guide for a later environment
+
+== Summary
+
+* [x] Mapped workshop SCRAM to a production OAuth listener
+* [x] Named Red Hat build of Keycloak as the token issuer
+* [x] Left the shared cluster sizing and CDC path untouched
+
+*Bridge:* Identity and the CDC path are clear. Next: wrap up what you would harden before real customers.

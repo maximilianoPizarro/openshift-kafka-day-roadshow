@@ -31,6 +31,12 @@ Congratulations! You followed NeuralBank's path from a PostgreSQL row change to 
 
 |Monitoring
 |Grafana dashboards, Kafka Exporter, PodMonitors, PromQL queries
+
+|Kafka Users
+|SCRAM `KafkaUser`, TLS listener on port 9093, identity without authorization
+
+|Keycloak (read only)
+|How Red Hat build of Keycloak would issue tokens for an OAuth Kafka listener
 |===
 
 == Architecture Recap

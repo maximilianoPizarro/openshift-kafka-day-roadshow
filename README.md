@@ -10,7 +10,7 @@ Lab guide: [https://maximilianopizarro.github.io/openshift-kafka-day-roadshow/ka
 
 ## TL;DR
 
-NeuralBank's banking app keeps writing customers and orders to PostgreSQL. In **2 hours**, participants follow one row change into Kafka, see the notification email, reject a bad event with a JSON Schema, and read the pipeline in Grafana. The banking app is not modified.
+NeuralBank's banking app keeps writing customers and orders to PostgreSQL. In **2 hours**, participants follow one row change into Kafka, see the notification email, reject a bad event with a JSON Schema, and read the pipeline in Grafana. An optional **25 minutes** adds a SCRAM `KafkaUser` exercise and a read-only Keycloak identity map. The banking app is not modified.
 
 Hub-only Validated Pattern, one OpenShift cluster. For 30 people, request **4 workers, `m5a.4xlarge`** (64 vCPU / 256 Gi). Development fits on **2× `m5a.4xlarge`**.
 
@@ -25,6 +25,8 @@ You stay inside one business path and light it up piece by piece:
 5. **Debezium.** The Kafka record is the PostgreSQL change: operation, `before`, and `after`. A bad connector event would land on the dead-letter topic; an empty read there means the pipeline is keeping up.
 6. **The contract.** Apicurio Registry holds the customer and order JSON Schemas. Camel accepts a valid row and sends an invalid one to `camel.schema-errors` without stopping the route.
 7. **The health view.** Grafana shows broker traffic, consumer lag, Debezium, and Connect tasks for the same pipeline.
+8. **Your Kafka identity.** Create a SCRAM `KafkaUser` and consume on the TLS listener. Port 9092 stays open for the CDC path.
+9. **Keycloak in production.** Read how Red Hat build of Keycloak would issue tokens for an OAuth listener. Nothing is installed on this cluster.
 
 The wrap-up asks what you would harden before this served real customers. No component replaces the banking app. Mail is the HTTP sink, the email transformer, and Mailpit.
 
@@ -37,6 +39,8 @@ The wrap-up asks what you would harden before this served real customers. No com
 | What a CDC record contains | Read a Debezium `before` / `after` payload |
 | A schema is a contract, not a hope | Published one valid and one invalid customer and saw where each went |
 | Where to look when the pipeline is quiet or stuck | Ran the Grafana queries for rate, lag, Debezium, and Connect tasks |
+| SCRAM proves who you are on a TLS listener | Created a `KafkaUser` and consumed on port 9093 |
+| Keycloak belongs in production identity design | Mapped today's path to an OAuth listener without installing Keycloak |
 
 ## Workshop Modules
 
@@ -49,7 +53,9 @@ The wrap-up asks what you would harden before this served real customers. No com
 | 05 | Debezium CDC | 20 min |
 | 06 | Camel and Apicurio Registry | 20 min |
 | 07 | Monitoring | 15 min |
-| 08 | Wrap-up | 5 min |
+| 08 | Kafka Users | 15 min |
+| 09 | Authentication with Keycloak | 10 min |
+| 10 | Wrap-up | 5 min |
 
 ## Components
 

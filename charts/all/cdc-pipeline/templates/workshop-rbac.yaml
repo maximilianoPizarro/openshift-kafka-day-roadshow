@@ -21,8 +21,30 @@ rules:
   - apiGroups: ["registry.apicur.io"]
     resources: ["apicurioregistries3"]
     verbs: ["get", "list", "watch"]
+  - apiGroups: ["kafka.strimzi.io"]
+    resources: ["kafkausers"]
+    verbs: ["create", "get", "list", "watch"]
 {{- range $i := until (int .Values.userCount) }}
 {{- $user := printf "user%d" (add1 $i) }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $user }}-kafkauser
+  namespace: kafka-cdc
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+rules:
+  - apiGroups: ["kafka.strimzi.io"]
+    resources: ["kafkausers"]
+    resourceNames: [{{ $user | quote }}]
+    verbs: ["update", "patch"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames:
+      - {{ $user | quote }}
+      - cdc-cluster-cluster-ca-cert
+    verbs: ["get"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -35,6 +57,22 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
   name: workshop-lab
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: User
+    name: {{ $user }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $user }}-kafkauser
+  namespace: kafka-cdc
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $user }}-kafkauser
 subjects:
   - apiGroup: rbac.authorization.k8s.io
     kind: User
