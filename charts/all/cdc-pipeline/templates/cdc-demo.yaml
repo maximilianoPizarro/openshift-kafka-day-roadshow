@@ -18,61 +18,16 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-wave: "3"
 data:
-  # RHEL postgresql image only sources *.sh under postgresql-init/ (not raw .sql).
+  # Sourced only on the first initdb, before the image creates POSTGRESQL_DATABASE.
+  # Keep this to settings on the default postgres database.
   01-cdc.sh: |
     #!/bin/bash
     set -euo pipefail
-    echo "=> bootstrapping CDC schema and replication role"
-    psql -v ON_ERROR_STOP=1 --username postgres --dbname "$POSTGRESQL_DATABASE" <<'EOSQL'
+    echo "=> enabling logical replication"
+    psql -v ON_ERROR_STOP=1 --username postgres --dbname postgres <<'EOSQL'
     ALTER SYSTEM SET wal_level = 'logical';
     ALTER SYSTEM SET max_replication_slots = 4;
     ALTER SYSTEM SET max_wal_senders = 4;
-    ALTER ROLE {{ .Values.postgresql.username }} WITH REPLICATION;
-
-    CREATE TABLE IF NOT EXISTS customers (
-      id SERIAL PRIMARY KEY,
-      first_name VARCHAR(100) NOT NULL,
-      last_name  VARCHAR(100) NOT NULL,
-      email      VARCHAR(255) UNIQUE NOT NULL,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS orders (
-      id          SERIAL PRIMARY KEY,
-      customer_id INTEGER REFERENCES customers(id),
-      product     VARCHAR(255) NOT NULL,
-      amount      DECIMAL(10,2) NOT NULL,
-      status      VARCHAR(50) DEFAULT 'pending',
-      created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-
-    INSERT INTO customers (first_name, last_name, email) VALUES
-      ('Ana',    'Garcia',    'ana.garcia@neuralbank.io'),
-      ('Carlos', 'Lopez',     'carlos.lopez@neuralbank.io'),
-      ('Maria',  'Rodriguez', 'maria.rodriguez@neuralbank.io'),
-      ('Pedro',  'Martinez',  'pedro.martinez@neuralbank.io'),
-      ('Laura',  'Fernandez', 'laura.fernandez@neuralbank.io')
-    ON CONFLICT (email) DO NOTHING;
-
-    INSERT INTO orders (customer_id, product, amount, status)
-    SELECT * FROM (VALUES
-      (1, 'Personal Loan', 15000.00, 'approved'),
-      (2, 'Credit Card',    5000.00, 'pending'),
-      (3, 'Mortgage',     250000.00, 'reviewing'),
-      (4, 'Auto Loan',     35000.00, 'approved'),
-      (5, 'Business Line',100000.00, 'pending')
-    ) AS v(customer_id, product, amount, status)
-    WHERE NOT EXISTS (SELECT 1 FROM orders LIMIT 1);
-
-    GRANT SELECT ON ALL TABLES IN SCHEMA public TO {{ .Values.postgresql.username }};
-    GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO {{ .Values.postgresql.username }};
-
-    DO $$
-    BEGIN
-      IF NOT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'cdc_publication') THEN
-        CREATE PUBLICATION cdc_publication FOR TABLE customers, orders;
-      END IF;
-    END $$;
     EOSQL
 ---
 apiVersion: v1
@@ -83,23 +38,69 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-wave: "3"
 data:
-  # Runs on every start so redeploys with an existing PVC still get REPLICATION + publication.
+  # Runs on every start, after the image has created POSTGRESQL_USER / POSTGRESQL_DATABASE
+  # on a fresh init. Also repairs a data directory where that step never finished.
   01-ensure-cdc.sh: |
     #!/bin/bash
     set -euo pipefail
-    psql -v ON_ERROR_STOP=1 --username postgres --dbname "$POSTGRESQL_DATABASE" <<'EOSQL'
-    ALTER ROLE {{ .Values.postgresql.username }} WITH REPLICATION;
-    GRANT SELECT ON ALL TABLES IN SCHEMA public TO {{ .Values.postgresql.username }};
-    GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO {{ .Values.postgresql.username }};
-    DO $$
+    db="${POSTGRESQL_DATABASE}"
+    user="${POSTGRESQL_USER}"
+    echo "=> ensuring CDC role ${user} and database ${db}"
+    psql -v ON_ERROR_STOP=1 --username postgres --dbname postgres <<EOSQL
+    DO \$\$
+    BEGIN
+      IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '${user}') THEN
+        EXECUTE format('CREATE ROLE %I LOGIN PASSWORD %L REPLICATION', '${user}', '${POSTGRESQL_PASSWORD}');
+      ELSE
+        EXECUTE format('ALTER ROLE %I WITH LOGIN REPLICATION', '${user}');
+      END IF;
+    END
+    \$\$;
+    EOSQL
+    if ! psql --username postgres --dbname postgres -tAc "SELECT 1 FROM pg_database WHERE datname='${db}'" | grep -q 1; then
+      psql -v ON_ERROR_STOP=1 --username postgres --dbname postgres -c "CREATE DATABASE \"${db}\" OWNER \"${user}\""
+    fi
+    psql -v ON_ERROR_STOP=1 --username postgres --dbname "${db}" <<EOSQL
+    CREATE TABLE IF NOT EXISTS customers (
+      id SERIAL PRIMARY KEY,
+      first_name VARCHAR(100) NOT NULL,
+      last_name  VARCHAR(100) NOT NULL,
+      email      VARCHAR(255) UNIQUE NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS orders (
+      id          SERIAL PRIMARY KEY,
+      customer_id INTEGER REFERENCES customers(id),
+      product     VARCHAR(255) NOT NULL,
+      amount      DECIMAL(10,2) NOT NULL,
+      status      VARCHAR(50) DEFAULT 'pending',
+      created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    INSERT INTO customers (first_name, last_name, email) VALUES
+      ('Ana',    'Garcia',    'ana.garcia@neuralbank.io'),
+      ('Carlos', 'Lopez',     'carlos.lopez@neuralbank.io'),
+      ('Maria',  'Rodriguez', 'maria.rodriguez@neuralbank.io'),
+      ('Pedro',  'Martinez',  'pedro.martinez@neuralbank.io'),
+      ('Laura',  'Fernandez', 'laura.fernandez@neuralbank.io')
+    ON CONFLICT (email) DO NOTHING;
+    INSERT INTO orders (customer_id, product, amount, status)
+    SELECT * FROM (VALUES
+      (1, 'Personal Loan', 15000.00, 'approved'),
+      (2, 'Credit Card',    5000.00, 'pending'),
+      (3, 'Mortgage',     250000.00, 'reviewing'),
+      (4, 'Auto Loan',     35000.00, 'approved'),
+      (5, 'Business Line',100000.00, 'pending')
+    ) AS v(customer_id, product, amount, status)
+    WHERE NOT EXISTS (SELECT 1 FROM orders LIMIT 1);
+    GRANT SELECT ON ALL TABLES IN SCHEMA public TO ${user};
+    GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO ${user};
+    DO \$\$
     BEGIN
       IF NOT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'cdc_publication') THEN
-        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'customers')
-           AND EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'orders') THEN
-          CREATE PUBLICATION cdc_publication FOR TABLE customers, orders;
-        END IF;
+        CREATE PUBLICATION cdc_publication FOR TABLE customers, orders;
       END IF;
-    END $$;
+    END
+    \$\$;
     EOSQL
 ---
 apiVersion: v1
