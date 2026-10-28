@@ -92,8 +92,8 @@ data:
       (5, 'Business Line',100000.00, 'pending')
     ) AS v(customer_id, product, amount, status)
     WHERE NOT EXISTS (SELECT 1 FROM orders LIMIT 1);
-    GRANT SELECT ON ALL TABLES IN SCHEMA public TO ${user};
-    GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO ${user};
+    GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO ${user};
+    GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO ${user};
     DO \$\$
     BEGIN
       IF NOT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'cdc_publication') THEN
