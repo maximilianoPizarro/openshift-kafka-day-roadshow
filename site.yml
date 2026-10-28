@@ -13,17 +13,10 @@ ui:
   bundle:
     url: https://github.com/dialvare/rhdp_showroom_theme/releases/download/v2.0.4-ops/ui-bundle.zip
     snapshot: true
-  supplemental_files:
-    - path: ./content/supplemental-ui
-    - path: ./content/lib
-    - path: .nojekyll
-    - path: ui.yml
-      contents: |
-        static_files:
-          - .nojekyll
-          - favicon.ico
-          - img/**
-          - css/site-extra.css
+  # Directory form required so Antora overlays partials, css, and favicon.ico.
+  # static_files in content/supplemental-ui/ui.yml promote only .nojekyll + favicon.ico
+  # to the site root (img/** must stay under _/img for the theme logo paths).
+  supplemental_files: ./content/supplemental-ui
 
 runtime:
   cache_dir: ./.cache/antora
