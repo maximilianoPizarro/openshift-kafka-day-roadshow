@@ -14,13 +14,24 @@ mkdir -p "${home}/.kube"
 chmod 700 "${home}" "${home}/.kube" || true
 
 if [ ! -f "${home}/.kube/config" ]; then
+  # A current context stops oc from falling back to the pod service account,
+  # which every terminal would otherwise share until someone logs in.
   cat > "${home}/.kube/config" <<'EOF'
 apiVersion: v1
 kind: Config
-clusters: []
-contexts: []
-current-context: ""
-users: []
+clusters:
+- name: workshop
+  cluster:
+    server: https://127.0.0.1:1
+contexts:
+- name: workshop
+  context:
+    cluster: workshop
+    user: none
+current-context: workshop
+users:
+- name: none
+  user: {}
 EOF
   chmod 600 "${home}/.kube/config" || true
 fi
