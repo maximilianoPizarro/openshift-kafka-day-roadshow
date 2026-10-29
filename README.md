@@ -75,8 +75,9 @@ The wrap-up asks what you would harden before this served real customers. No com
 
 ### Prerequisites
 
-- OpenShift 4.17+ with the **Validated Patterns Operator** installed
-- The **Community Operators** catalog enabled (Grafana is installed from it)
+- OpenShift 4.17+
+- **Validated Patterns Operator** installed from OperatorHub before applying the Pattern. Package `patterns-operator`, channel `fast`, namespace `openshift-operators`
+- The **Community Operators** catalog enabled (the Validated Patterns Operator and Grafana are installed from it)
 - **Development**: 2x m5a.4xlarge workers (32 vCPU / 128 Gi)
 - **Workshop (30 users)**: 4x m5a.4xlarge workers (64 vCPU / 256 Gi)
 
