@@ -87,6 +87,14 @@ data:
             - web
           service: showroom
           priority: 1
+        terminal-boot:
+          rule: "(Path(`/terminal`) || Path(`/terminal/`)) && !QueryRegexp(`arg`, `.+`)"
+          entryPoints:
+            - web
+          service: showroom
+          middlewares:
+            - terminal-boot-rewrite
+          priority: 20
         terminal:
           rule: "PathPrefix(`/terminal`)"
           entryPoints:
@@ -105,10 +113,28 @@ data:
             servers:
               - url: "http://127.0.0.1:7681"
       middlewares:
+        terminal-boot-rewrite:
+          replacePath:
+            path: /workshop-terminal.html
         terminal-stripprefix:
           stripPrefix:
             prefixes:
               - "/terminal"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}-terminal-scripts
+  namespace: {{ $ns }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+data:
+  start-terminal.sh: |
+{{ .Files.Get "files/start-terminal.sh" | indent 4 }}
+  workshop-shell.sh: |
+{{ .Files.Get "files/workshop-shell.sh" | indent 4 }}
+  workshop-terminal.html: |
+{{ .Files.Get "files/workshop-terminal.html" | indent 4 }}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -267,6 +293,10 @@ spec:
             - mountPath: /showroom/www
               name: showroom-files
               subPath: www
+            - name: terminal-scripts
+              mountPath: /showroom/www/workshop-terminal.html
+              subPath: workshop-terminal.html
+              readOnly: true
           ports:
             - containerPort: 8000
               protocol: TCP
@@ -292,12 +322,18 @@ spec:
         - name: terminal
           image: {{ .Values.showroom.terminal.image | quote }}
           imagePullPolicy: IfNotPresent
+          command: ["/bin/bash", "/opt/workshop/start-terminal.sh"]
           env:
             - name: NAMESPACE
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
+            - name: WORKSHOP_HOME_ROOT
+              value: /home/lab-user/homes
           volumeMounts:
+            - name: terminal-scripts
+              mountPath: /opt/workshop
+              readOnly: true
             - name: terminal-lab-user-home
               mountPath: /home/lab-user
             - name: terminal-data-ssh
@@ -319,6 +355,9 @@ spec:
         - name: traefik-dynamic
           configMap:
             name: {{ $name }}-traefik-dynamic
+        - name: terminal-scripts
+          configMap:
+            name: {{ $name }}-terminal-scripts
         - name: terminal-data-ssh
           emptyDir: {}
         - name: terminal-lab-user-home

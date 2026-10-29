@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Terminal</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #000; color: #ddd; font: 14px/1.4 ui-monospace, monospace; }
+    body { display: flex; align-items: center; justify-content: center; }
+  </style>
+</head>
+<body>
+  <p>Opening your terminal…</p>
+  <script>
+    (function () {
+      var user = "";
+      try {
+        var params = new URLSearchParams(window.parent.location.search || "");
+        user = (params.get("USER_NAME") || "").trim();
+      } catch (err) {
+        user = "";
+      }
+      if (!/^[A-Za-z0-9][A-Za-z0-9_-]{0,40}$/.test(user)) {
+        var bytes = new Uint8Array(4);
+        if (window.crypto && window.crypto.getRandomValues) {
+          window.crypto.getRandomValues(bytes);
+        }
+        user = "session-" + Array.prototype.map.call(bytes, function (b) {
+          return ("0" + b.toString(16)).slice(-2);
+        }).join("");
+      }
+      window.location.replace("/terminal/?arg=" + encodeURIComponent(user));
+    })();
+  </script>
+</body>
+</html>
